@@ -1,5 +1,9 @@
 <div align="center">
 
+<a href="src/WinNotch/Assets/WinNotch.ico">
+  <img src="docs/images/winnotch-icon.png" alt="WinNotch app icon" width="96" height="96">
+</a>
+
 # WinNotch
 
 **A quiet place for what's playing.**
