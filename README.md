@@ -1,66 +1,192 @@
+<div align="center">
+
 # WinNotch
 
-A native Windows notch for music and small system moments. Built with C#, .NET 10, WPF, WinRT media/power APIs, and Win32/Core Audio. No browser engine, server, account, analytics, or runtime network dependency.
+**A quiet place for what's playing.**
 
-## Run
+A native Windows notch that brings your music, volume, and battery moments<br>
+to one small space at the top of your screen.
 
-Run `dist/WinNotch/WinNotch.exe`. The portable build includes the .NET runtime; administrator access is not required. Keep it in a permanent folder before enabling startup.
+![Windows 11](https://img.shields.io/badge/Windows_11-x64-0078D4?style=flat-square)
+![.NET 10](https://img.shields.io/badge/.NET-10-512BD4?style=flat-square)
+![WPF](https://img.shields.io/badge/UI-WPF-191B1D?style=flat-square)
+![Preview](https://img.shields.io/badge/status-v0.1_preview-C9F7A7?style=flat-square&labelColor=252C24)
 
-- Click the notch to open the player; click outside or press Escape to collapse.
-- Right-click the notch or its tray icon for settings, pause/resume, and exit.
-- Double-click the tray icon, or launch the executable again, to open settings.
-- `WinNotch.exe --settings` opens settings on launch.
-- Smart hide hides the idle notch over maximized title bars. Active media and brief system events still appear. Choose **Always visible** to keep the idle notch present.
-- Startup is opt-in through settings; it creates a per-user Windows Run entry pointing at the current executable. Turn it off before moving/deleting that executable.
+[Preview](#see-it-in-action) · [Get started](#get-started) · [Build](#build-from-source) · [Roadmap](#roadmap) · [Validation](VALIDATION.md)
 
-## v0.1 preview scope
+<img src="docs/images/player.png" alt="WinNotch expanded music player with album artwork, track information, playback controls, and timeline" width="500">
 
-- Attached black notch with flat upper corners, hover feedback, resize/fade animation, optional floating style, three sizes.
-- Explicit Hidden / Idle / Peek / Compact / Expanded state manager with expiring priority events. Charger events restore the previous media state without an idle flash.
-- System media session, title, artist, artwork, play/pause, previous/next, and read-only timeline. Controls follow the active player's supported capabilities.
-- Battery/charger/low-battery/full/saver events and volume/mute callbacks, including default audio device changes.
-- Primary-monitor positioning, per-monitor DPI awareness, fullscreen/presentation hide, delayed restore, and smart hide for maximized apps.
-- Passive overlay uses `WS_EX_NOACTIVATE`; the expanded panel becomes keyboard-interactive. Tool window is excluded from the taskbar and Alt+Tab.
-- Tray, local settings, startup option, reduced-motion preference, and high-contrast colors.
+*Always available, rarely distracting.*
 
-Notifications, timers, brightness, per-app exclusions, and follow-active-monitor mode are v0.2 work. A paused media session stays compact while Windows continues to expose it. The Windows volume flyout is not suppressed.
+</div>
 
-## Develop
+---
 
-Requires Windows and .NET 10 SDK. A project-local SDK, when present in `.tools/dotnet`, takes precedence over the system SDK.
+WinNotch sits against your screen's upper edge like an extension of the bezel. Start some music and it becomes a compact player. Change the volume or plug in your charger and it briefly shows what changed. Click it to open playback controls, then click away to return to your work.
+
+Built with **C#, .NET 10, WPF, and native Windows APIs**. No browser engine, account, server, analytics, or runtime network dependency.
+
+> [!NOTE]
+> **v0.1 is a functional preview.** Media, battery, and volume are implemented; notifications and timers are planned. Memory use is above the product's ≤120 MB target. See [validation results and remaining limitations](VALIDATION.md).
+
+## See it in action
+
+| Music at a glance | A brief system moment |
+| :---: | :---: |
+| ![Compact media view showing a track and playback button](docs/images/compact.png) | ![Charging event preview showing a battery percentage](docs/images/charging.png) |
+| Track information stays close by. | An event appears, then the previous state returns. |
+
+These are captures of the app from the UI smoke test. The charging capture uses a **test fixture**; normal operation shows live device events. The compact capture contains an active media session, rather than the empty idle notch.
+
+<details>
+<summary><strong>A look at preferences</strong></summary>
+
+<p align="center">
+  <img src="docs/images/settings.png" alt="WinNotch preferences with startup, fullscreen hiding, appearance, size, and visibility settings" width="746">
+</p>
+
+Choose an attached or floating shape, one of three sizes, and the visibility mode that fits your desktop. Media, battery, and volume modules can be enabled individually.
+
+</details>
+
+## Small space, useful details
+
+| Feature | What it does today |
+| --- | --- |
+| **Music controls** | Shows the active Windows media session's title, artist, and artwork, with play/pause, previous/next, and a read-only timeline. Available controls follow the player's capabilities. |
+| **Battery moments** | Shows charger connection changes, low battery, full battery, and battery-saver events. |
+| **Volume feedback** | Shows volume and mute changes through Core Audio callbacks, including changes to the default audio device. |
+| **Adaptive presence** | Smart hide keeps the idle notch away from maximized title bars. Optional fullscreen/presentation hiding lets it step aside. |
+| **Your desktop, your settings** | Attached or floating style, three sizes, visibility modes, tray controls, and opt-in startup. |
+| **Native interaction** | Passive events do not take focus. The expanded player supports keyboard interaction; the overlay stays out of the taskbar and Alt+Tab. |
+| **Accessible motion and color** | Respects Windows reduced-motion preferences and includes high-contrast colors. |
+
+The notch is positioned on the **primary monitor** and scales with Windows DPI. A paused media session stays compact while Windows continues to expose it. The standard Windows volume flyout remains visible.
+
+## Get started
+
+The preview targets **Windows 11 x64**. The published portable executable includes the .NET runtime and does not require administrator access.
+
+1. If you already have the portable build, keep its folder in a permanent location. Otherwise, [build it from source](#build-from-source).
+2. Open `WinNotch.exe` (`dist\WinNotch\WinNotch.exe` after publishing locally).
+3. Start playback in an app that exposes a Windows media session, then click the notch to open the player.
+
+The `dist/` folder is generated locally and is excluded from Git; cloning the repository gives you the source, not the portable executable.
+
+### Everyday controls
+
+| Action | Result |
+| --- | --- |
+| Click the notch | Open the player. |
+| Click outside or press **Escape** | Collapse the player. |
+| Right-click the notch or tray icon | Open the menu for settings, pause/resume, and exit. |
+| Double-click the tray icon | Open settings. |
+| Launch WinNotch again | Open the existing instance's settings. |
+| Run `WinNotch.exe --settings` | Open settings on launch. |
+
+**Smart hide** is the default: the idle notch hides over maximized title bars, while active media and brief events can still appear. Choose **Always visible** to keep the idle notch present, or **Only when active** for media and events.
+
+Startup is opt-in through settings. It creates a per-user Windows Run entry pointing to the current executable; turn startup off before moving or deleting that executable.
+
+## Build from source
+
+Requires Windows and the **.NET 10 SDK**. `global.json` selects SDK 10.0.100 with roll-forward to a later stable .NET 10 feature band. If `.tools/dotnet/dotnet.exe` exists, the build script uses it before the system SDK.
+
+From the repository root, run:
 
 ```powershell
-.\build.ps1                  # Release build
-.\build.ps1 -Check           # State/arbitration checks + build
-.\build.ps1 -Check -Publish  # Portable, self-contained x64 executable
-.\dist\WinNotch\WinNotch.exe --smoke-test D:\WinNotch\artifacts\smoke
-# Native media integration tests (in a normal Windows desktop session):
-.\.tools\dotnet\dotnet.exe run --project tests\WinNotch.IntegrationChecks -c Release
+# Release build
+.\build.ps1
+
+# State/arbitration checks, then a Release build
+.\build.ps1 -Check
+
+# Checks, then a portable, self-contained x64 executable
+.\build.ps1 -Check -Publish
+
+# Launch the published app
+.\dist\WinNotch\WinNotch.exe
 ```
 
-The smoke-test option runs a short UI/native check, saves local images and a JSON report, then exits. Its charging popup is a labeled test fixture in the test code; normal operation only displays live device events. No settings are saved by the smoke test. Close another WinNotch instance before running it.
+### Run the checks
 
-The integration runner creates a temporary silent local media session and verifies metadata, artwork, playback state, play/pause, next, and previous. It refuses to issue controls if another session becomes current. Temporary audio and artwork stay under `artifacts/integration`.
+Close any running WinNotch instance before the UI smoke test. Run desktop checks in a normal Windows desktop session.
 
-## Structure
+```powershell
+# UI/native smoke test against the published executable
+.\dist\WinNotch\WinNotch.exe --smoke-test (Join-Path $PWD 'artifacts\smoke')
 
-`Core/NotchStateManager.cs` owns presentation and priority. `App.xaml.cs` wires modules to the state manager. `Modules/` uses Windows events; media timeline refresh runs only while an actively playing expanded panel is visible. `ForegroundService` listens for foreground/bounds changes and checks presentation mode on a two-second watchdog. `OverlayWindow` owns window style, layout, and animation. `SettingsWindow` edits the small JSON settings file.
+# Native media integration checks: use the local SDK if present
+$dotnet = if (Test-Path '.\.tools\dotnet\dotnet.exe') {
+    '.\.tools\dotnet\dotnet.exe'
+} else {
+    'dotnet'
+}
+& $dotnet run --project tests\WinNotch.IntegrationChecks -c Release
+```
 
-Settings live in `%LOCALAPPDATA%\WinNotch\settings.json`. Diagnostics log only timestamp, module, exception type, and HRESULT; media titles, artist names, artwork, and message text are not logged. Logs rotate at 128 KB.
+| Check | Coverage |
+| --- | --- |
+| **State/arbitration** | Priority, coalescing, expiry, restoration, suppression, visibility policies, and pause/resume. |
+| **UI smoke test** | Native window flags, passive-event focus behavior, state transitions, primary-display placement, module availability, and a short resource-use sample. Saves screenshots and a JSON report, then exits without saving settings. |
+| **Media integration** | Creates a temporary silent local media session to check metadata, artwork, playback state, and play/pause/next/previous. Refuses to issue controls if another session becomes current. Fixtures stay under `artifacts/integration`. |
 
-Windows App SDK is not a dependency in this milestone: the APIs used here are available directly through the Windows target framework and Win32. Introduce it only for a feature that needs it.
+[VALIDATION.md](VALIDATION.md) records the preview's checked results and the hardware/manual checks still needed. Short resource samples are not long-running performance guarantees.
 
-## Validation boundaries
+## Local by design
 
-The automated checks cover priority, coalescing, expiry, suppression, pause/resume, and visibility policies. The UI smoke test checks native window flags, focus behavior for passive events, state transitions, primary display placement, module availability, and a brief resource-use sample. A short sample is not a long-running performance guarantee.
+- Settings live in `%LOCALAPPDATA%\WinNotch\settings.json`.
+- Media metadata stays in memory. Diagnostics record only timestamp, module, exception type, and HRESULT; titles, artists, artwork, and message text are not logged.
+- Diagnostic logs rotate at approximately 128 KB.
+- This release does not request notification access.
 
-Physical charger changes, every external media player's control support, exclusive fullscreen games, login startup, and physical mixed-DPI monitors require hardware/manual validation. The executable does not request notification access in this release.
+## Roadmap
 
-See [VALIDATION.md](VALIDATION.md) for verified results and remaining limitations. The current portable build is a functional preview; its measured working set is above the PRD's <=120 MB target.
+The [product brief](prd.md) describes the broader vision. This README describes the implemented preview.
 
-## API references
+| Milestone | Scope |
+| --- | --- |
+| **v0.1 · Current preview** | Notch shell, media controls, battery/charger events, volume/mute feedback, primary-monitor positioning, tray, and local preferences. |
+| **v0.2 · Planned** | Notifications, timers, brightness, per-app exclusions, and follow-active-monitor mode. |
+| **Validation still needed** | Physical charger/audio-device transitions, external media players, exclusive fullscreen games, login startup, accessibility preferences, and physical mixed-DPI monitors. |
+
+Memory optimization remains necessary: the recorded idle sample measured **298.5 MiB working set**, above the PRD's ≤120 MB target. Startup under two seconds and sustained 60 FPS have not been benchmarked. See [the full performance notes](VALIDATION.md#performance-remains-a-preview-limitation).
+
+## Under the hood
+
+```text
+src/WinNotch/
+├── App.xaml.cs                Module wiring, lifecycle, and tray
+├── Core/                      Presentation state and local settings
+├── Modules/                   Media, battery, audio, and foreground events
+├── Native/                    Win32 and Core Audio interop
+├── OverlayWindow.xaml         Notch layout
+├── OverlayWindow.xaml.cs      Window behavior and animation
+├── SettingsWindow.xaml        Preferences UI
+└── SmokeTest.cs               UI/native smoke checks
+tests/
+├── WinNotch.Checks/            Deterministic state checks
+└── WinNotch.IntegrationChecks/ Native media checks
+```
+
+`NotchStateManager` owns the **Hidden → Idle → Peek → Compact → Expanded** presentation states and arbitrates expiring priority events. A charger event restores the previous media state without flashing an idle notch between them.
+
+Modules use Windows events. The media timeline refreshes only while an actively playing expanded panel is visible. `ForegroundService` listens for foreground/bounds changes and checks presentation mode on a two-second watchdog. `OverlayWindow` owns layout, animation, and native window styles, including `WS_EX_NOACTIVATE` for passive presentation.
+
+Windows App SDK is not a dependency in this milestone; the Windows target framework and Win32 expose the APIs used here.
+
+<details>
+<summary><strong>Native API references</strong></summary>
 
 - [Call WinRT from desktop .NET](https://learn.microsoft.com/en-us/windows/apps/desktop/modernize/winrt-apis-desktop-apps)
 - [System media sessions](https://learn.microsoft.com/en-us/uwp/api/windows.media.control.globalsystemmediatransportcontrolssessionmanager)
 - [Core Audio endpoint notifications](https://learn.microsoft.com/en-us/windows/win32/api/endpointvolume/nn-endpointvolume-iaudioendpointvolumecallback)
 - [Fullscreen/presentation notification state](https://learn.microsoft.com/en-us/windows/win32/api/shellapi/ne-shellapi-query_user_notification_state)
+
+</details>
+
+## Help shape the preview
+
+[Report a bug or suggest an improvement](https://github.com/Wahyusrg0819/WinNotch/issues). For a useful bug report, include your Windows version, display scaling, relevant media player or audio device, steps to reproduce, and expected behavior.
+
+For code changes, run `.\build.ps1 -Check` and the desktop checks relevant to the change. Keep the [product brief](prd.md) and [validation notes](VALIDATION.md) aligned with any changes to scope or verified behavior.
