@@ -14,7 +14,7 @@ if ($Check) {
     if ($LASTEXITCODE -ne 0) { throw 'State checks failed.' }
 }
 if ($Publish) {
-    & $dotnet publish 'src\WinNotch\WinNotch.csproj' -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false -o 'dist\WinNotch'
+    & $dotnet publish 'src\WinNotch\WinNotch.csproj' -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=false -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false -o 'dist\WinNotch'
 } else {
     & $dotnet build 'src\WinNotch\WinNotch.csproj' -c Release
 }

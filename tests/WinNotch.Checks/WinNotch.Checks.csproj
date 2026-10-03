@@ -1,4 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable></PropertyGroup>
   <ItemGroup><Compile Include="../../src/WinNotch/Core/NotchStateManager.cs" Link="NotchStateManager.cs"/></ItemGroup>
+  <ItemGroup><Compile Include="../../src/WinNotch/Core/DisplayPolicy.cs" Link="DisplayPolicy.cs"/></ItemGroup>
 </Project>

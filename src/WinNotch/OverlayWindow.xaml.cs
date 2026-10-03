@@ -21,12 +21,13 @@ public partial class OverlayWindow : Window
     private NotchState shownState = NotchState.Idle;
     private readonly DispatcherTimer timelineTimer;
     private readonly MenuItem pauseItem;
+    internal ContextMenu TrayMenu => Notch.ContextMenu;
 
     public OverlayWindow(App host)
     {
         this.host = host;
         InitializeComponent();
-        Width = 500; Height = 270;
+        Width = DisplayPolicy.CanvasWidth; Height = DisplayPolicy.CanvasHeight;
         var menu = new ContextMenu();
         var settings = new MenuItem { Header = "Settings" };
         settings.Click += (_, _) => host.OpenSettings();
@@ -69,12 +70,20 @@ public partial class OverlayWindow : Window
     {
         if (handle == IntPtr.Zero) return;
         var primary = Win32.PrimaryMonitor();
-        Win32.GetDpiForMonitor(primary.Handle, 0, out var dpi, out _);
-        var scale = (dpi == 0 ? 96 : dpi) / 96d;
-        var width = (int)Math.Round(Width * scale);
-        var height = (int)Math.Round(Height * scale);
+        // Move into the target display first. WPF then receives WM_DPICHANGED and
+        // the next placement uses this window's effective DPI, not a monitor query.
+        if (Win32.MonitorFromWindow(handle, 2) != primary.Handle)
+        {
+            var initial = DisplayPolicy.PlaceOverlay(primary.Info.Monitor.Bounds, Win32.GetDpiForWindow(handle));
+            Win32.SetWindowPos(handle, IntPtr.Zero, initial.Left, initial.Top, initial.Width, initial.Height, 0x14);
+        }
+        var dpi = Win32.GetDpiForWindow(handle);
+        var bounds = DisplayPolicy.PlaceOverlay(primary.Info.Monitor.Bounds, dpi);
         Win32.SetWindowPos(handle, host.Settings.AlwaysOnTop ? new IntPtr(-1) : new IntPtr(-2),
-            primary.Info.Monitor.Left + (primary.Info.Monitor.Width - width) / 2, primary.Info.Monitor.Top, width, height, 0x10);
+            bounds.Left, bounds.Top, bounds.Width, bounds.Height, 0x10);
+        var density = (dpi == 0 ? 96 : dpi) / 96d;
+        var fit = Math.Min(host.Settings.Scale, Math.Min(bounds.Width / density / 390, (bounds.Height / density - Notch.Margin.Top) / 210));
+        Notch.LayoutTransform = new ScaleTransform(Math.Max(0.1, fit), Math.Max(0.1, fit));
     }
 
     public void ApplySettings()

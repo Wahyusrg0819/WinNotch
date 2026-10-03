@@ -7,6 +7,8 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Interop;
+using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using WinNotch.Core;
@@ -30,6 +32,7 @@ internal static class SmokeTest
         checks["idleNoActivate"] = (style & Win32.NoActivate) != 0;
         checks["toolWindow"] = (style & Win32.ToolWindow) != 0;
         checks["noTaskbar"] = !app.Overlay.ShowInTaskbar;
+        checks["nativeTrayRegistered"] = app.IsTrayRegistered;
         var foreground = Win32.GetForegroundWindow();
         app.State.Publish("battery", "\uE945", "Charging", "72%", 70, TimeSpan.FromMilliseconds(700));
         await Task.Delay(300);
@@ -44,7 +47,8 @@ internal static class SmokeTest
         await Task.Delay(400);
         checks["expandedInteractive"] = (Win32.GetWindowLongPtr(hwnd, Win32.GwlExStyle).ToInt64() & Win32.NoActivate) == 0;
         Capture(app.Overlay, Path.Combine(output, "expanded.png"));
-        app.State.Collapse();
+        app.Overlay.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, PresentationSource.FromVisual(app.Overlay), Environment.TickCount, Key.Escape) { RoutedEvent = Keyboard.PreviewKeyDownEvent });
+        checks["escapeCollapses"] = app.State.Current.State != NotchState.Expanded;
         checks["collapseRestoresFocus"] = Win32.GetForegroundWindow() == beforeExpand;
         var settings = new SettingsWindow(app);
         settings.Show();
@@ -58,6 +62,12 @@ internal static class SmokeTest
         settings.Close();
         app.State.Suppressed = true; app.State.Refresh();
         checks["suppressedWindowHidden"] = !app.Overlay.IsVisible;
+        var monitor = Win32.PrimaryMonitor().Info.Monitor;
+        var anchor = new IntPtr(unchecked(((monitor.Bottom - 20) << 16) | ((monitor.Right - 80) & 0xFFFF)));
+        Win32.SendMessage(hwnd, 0x8001, anchor, new IntPtr((1 << 16) | 0x401));
+        await Task.Delay(200);
+        checks["trayMenuWorksWhenHidden"] = app.Overlay.TrayMenu.IsOpen && PresentationSource.FromVisual(app.Overlay.TrayMenu) != null;
+        app.Overlay.TrayMenu.IsOpen = false;
         app.State.Suppressed = false; app.State.Refresh();
         await Task.Delay(400);
         Capture(app.Overlay, Path.Combine(output, "idle.png"));
@@ -77,7 +87,7 @@ internal static class SmokeTest
         process.Refresh();
         checks["samplePostInteractionCpuPercent"] = Math.Round((process.TotalProcessorTime - cpu).TotalMilliseconds / elapsed.Elapsed.TotalMilliseconds / Environment.ProcessorCount * 100, 2);
         checks["workingSetMiB"] = Math.Round(process.WorkingSet64 / 1048576d, 1);
-        var required = new[] { "idleNoActivate", "toolWindow", "noTaskbar", "peekDoesNotStealFocus", "eventRestoresPersistentState", "expandedInteractive", "collapseRestoresFocus", "outsideClickCollapses", "suppressedWindowHidden", "topCentered" };
+        var required = new[] { "idleNoActivate", "toolWindow", "noTaskbar", "nativeTrayRegistered", "peekDoesNotStealFocus", "eventRestoresPersistentState", "expandedInteractive", "escapeCollapses", "collapseRestoresFocus", "outsideClickCollapses", "suppressedWindowHidden", "trayMenuWorksWhenHidden", "topCentered" };
         var passed = required.All(key => checks[key] is true);
         checks["nativeChecksPassed"] = passed;
         await File.WriteAllTextAsync(Path.Combine(output, "smoke-results.json"), JsonSerializer.Serialize(checks, new JsonSerializerOptions { WriteIndented = true }));

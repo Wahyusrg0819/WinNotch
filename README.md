@@ -14,7 +14,7 @@ to one small space at the top of your screen.
 ![Windows 11](https://img.shields.io/badge/Windows_11-x64-0078D4?style=flat-square)
 ![.NET 10](https://img.shields.io/badge/.NET-10-512BD4?style=flat-square)
 ![WPF](https://img.shields.io/badge/UI-WPF-191B1D?style=flat-square)
-![Preview](https://img.shields.io/badge/status-v0.1_preview-C9F7A7?style=flat-square&labelColor=252C24)
+![Preview](https://img.shields.io/badge/status-v0.1.1_preview-C9F7A7?style=flat-square&labelColor=252C24)
 
 [Preview](#see-it-in-action) · [Get started](#get-started) · [Build](#build-from-source) · [Roadmap](#roadmap) · [Validation](VALIDATION.md)
 
@@ -31,7 +31,7 @@ WinNotch sits against your screen's upper edge like an extension of the bezel. S
 Built with **C#, .NET 10, WPF, and native Windows APIs**. No browser engine, account, server, analytics, or runtime network dependency.
 
 > [!NOTE]
-> **v0.1 is a functional preview.** Media, battery, and volume are implemented; notifications and timers are planned. Memory use is above the product's ≤120 MB target. See [validation results and remaining limitations](VALIDATION.md).
+> **v0.1.1 is a functional preview.** Media, battery, and volume are implemented; notifications and timers are planned. This update reduces sampled idle working set from about 303 MiB to 135 MiB and fixes false fullscreen detection. The ≤120 MB memory target is still open. See [validation results and remaining limitations](VALIDATION.md).
 
 ## See it in action
 
@@ -76,6 +76,8 @@ The preview targets **Windows 11 x64**. The published portable executable includ
 3. Start playback in an app that exposes a Windows media session, then click the notch to open the player.
 
 The `dist/` folder is generated locally and is excluded from Git; cloning the repository gives you the source, not the portable executable.
+
+The single-file build is intentionally uncompressed (~158 MiB): this avoids the memory and startup cost measured with the previous compressed executable. No .NET runtime installation is needed.
 
 ### Everyday controls
 
@@ -135,6 +137,10 @@ $dotnet = if (Test-Path '.\.tools\dotnet\dotnet.exe') {
 | **UI smoke test** | Native window flags, passive-event focus behavior, state transitions, primary-display placement, module availability, and a short resource-use sample. Saves screenshots and a JSON report, then exits without saving settings. |
 | **Media integration** | Creates a temporary silent local media session to check metadata, artwork, playback state, and play/pause/next/previous. Refuses to issue controls if another session becomes current. Fixtures stay under `artifacts/integration`. |
 
+The integration runner also opens a temporary window to verify real borderless fullscreen detection and the restore delay. Bring **WinNotch fullscreen test** to the foreground if Windows blocks programmatic activation. The window closes automatically.
+
+For comparable performance samples, close running WinNotch instances and use `tests/Measure-Idle.ps1 -Executables @('path/to/old/WinNotch.exe', 'dist/WinNotch/WinNotch.exe')`. It launches and closes only the specified test processes and never trims their working sets or forces collection.
+
 [VALIDATION.md](VALIDATION.md) records the preview's checked results and the hardware/manual checks still needed. Short resource samples are not long-running performance guarantees.
 
 ## Local by design
@@ -150,11 +156,11 @@ The [product brief](prd.md) describes the broader vision. This README describes 
 
 | Milestone | Scope |
 | --- | --- |
-| **v0.1 · Current preview** | Notch shell, media controls, battery/charger events, volume/mute feedback, primary-monitor positioning, tray, and local preferences. |
+| **v0.1.1 · Current preview** | Existing notch/media/battery/volume features; lower memory use, native tray, more reliable fullscreen detection, and window-DPI-based placement. |
 | **v0.2 · Planned** | Notifications, timers, brightness, per-app exclusions, and follow-active-monitor mode. |
 | **Validation still needed** | Physical charger/audio-device transitions, external media players, exclusive fullscreen games, login startup, accessibility preferences, and physical mixed-DPI monitors. |
 
-Memory optimization remains necessary: the recorded idle sample measured **298.5 MiB working set**, above the PRD's ≤120 MB target. Startup under two seconds and sustained 60 FPS have not been benchmarked. See [the full performance notes](VALIDATION.md#performance-remains-a-preview-limitation).
+Two comparative runs measured **135.4 MiB idle working set** (previous build: 303.0–303.6 MiB), **62.5 MiB private bytes**, and a **0.91–1.08 s input-idle startup proxy**. Working set remains above the ≤120 MB target; cold boot startup and sustained 60 FPS still need measurement. See [the full performance notes](VALIDATION.md#performance-remains-a-preview-limitation).
 
 ## Under the hood
 
@@ -163,14 +169,15 @@ src/WinNotch/
 ├── App.xaml.cs                Module wiring, lifecycle, and tray
 ├── Core/                      Presentation state and local settings
 ├── Modules/                   Media, battery, audio, and foreground events
-├── Native/                    Win32 and Core Audio interop
+├── Native/                    Win32, Core Audio, and native tray interop
 ├── OverlayWindow.xaml         Notch layout
 ├── OverlayWindow.xaml.cs      Window behavior and animation
 ├── SettingsWindow.xaml        Preferences UI
 └── SmokeTest.cs               UI/native smoke checks
 tests/
 ├── WinNotch.Checks/            Deterministic state checks
-└── WinNotch.IntegrationChecks/ Native media checks
+├── WinNotch.IntegrationChecks/ Native media and fullscreen checks
+└── Measure-Idle.ps1            Reproducible process memory/startup samples
 ```
 
 `NotchStateManager` owns the **Hidden → Idle → Peek → Compact → Expanded** presentation states and arbitrates expiring priority events. A charger event restores the previous media state without flashing an idle notch between them.
@@ -178,6 +185,8 @@ tests/
 Modules use Windows events. The media timeline refreshes only while an actively playing expanded panel is visible. `ForegroundService` listens for foreground/bounds changes and checks presentation mode on a two-second watchdog. `OverlayWindow` owns layout, animation, and native window styles, including `WS_EX_NOACTIVATE` for passive presentation.
 
 Windows App SDK is not a dependency in this milestone; the Windows target framework and Win32 expose the APIs used here.
+
+The tray uses the existing overlay HWND and WPF menu, avoiding a second UI framework. Fullscreen detection combines the active window's monitor/client bounds with explicit presentation and Direct3D states; an ambiguous Windows "busy" state alone cannot hide the notch. Placement uses `GetDpiForWindow`, recenters after display changes, and clamps the canvas on smaller displays.
 
 <details>
 <summary><strong>Native API references</strong></summary>

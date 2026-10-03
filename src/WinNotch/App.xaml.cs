@@ -7,7 +7,7 @@ using System.Windows.Threading;
 using Microsoft.Win32;
 using WinNotch.Core;
 using WinNotch.Modules;
-using Forms = System.Windows.Forms;
+using WinNotch.Native;
 
 namespace WinNotch;
 
@@ -16,8 +16,7 @@ public partial class App : Application
     private Mutex? mutex;
     private EventWaitHandle? showSettingsSignal;
     private RegisteredWaitHandle? signalRegistration;
-    private Forms.NotifyIcon? tray;
-    private Forms.ToolStripMenuItem? pauseMenu;
+    private TrayIcon? tray;
     private ForegroundService? foreground;
     private DispatcherTimer? expiryTimer;
     private SettingsWindow? settingsWindow;
@@ -28,6 +27,7 @@ public partial class App : Application
     public BatteryService Battery { get; private set; } = null!;
     public AudioService Audio { get; private set; } = null!;
     public OverlayWindow Overlay { get; private set; } = null!;
+    internal bool IsTrayRegistered => tray?.IsRegistered == true;
 
     protected override async void OnStartup(StartupEventArgs e)
     {
@@ -65,7 +65,7 @@ public partial class App : Application
             Overlay.UpdateMedia(null);
             Media.SetEnabled(Settings.Media);
             CreateTray();
-            foreground = new ForegroundService(Dispatcher);
+            foreground = new ForegroundService(Dispatcher, new System.Windows.Interop.WindowInteropHelper(Overlay).Handle);
             foreground.Changed += (hidden, maximized) =>
             {
                 fullscreen = hidden; State.MaximizedApp = maximized;
@@ -123,25 +123,11 @@ public partial class App : Application
     }
     private void CreateTray()
     {
-        var menu = new Forms.ContextMenuStrip();
-        menu.Items.Add("Open player", null, (_, _) => Dispatcher.Invoke(Overlay.Expand));
-        menu.Items.Add("Settings", null, (_, _) => Dispatcher.Invoke(OpenSettings));
-        pauseMenu = new Forms.ToolStripMenuItem("Pause WinNotch", null, (_, _) => Dispatcher.Invoke(TogglePause));
-        menu.Items.Add(pauseMenu);
-        menu.Items.Add(new Forms.ToolStripSeparator());
-        menu.Items.Add("Exit WinNotch", null, (_, _) => Dispatcher.Invoke(Shutdown));
-        tray = new Forms.NotifyIcon { Text = "WinNotch · Your quiet corner", Icon = CreateTrayIcon(), ContextMenuStrip = menu, Visible = true };
-        tray.DoubleClick += (_, _) => Dispatcher.Invoke(OpenSettings);
-    }
-    private static System.Drawing.Icon CreateTrayIcon()
-    {
-        using var stream = GetResourceStream(new Uri("pack://application:,,,/Assets/WinNotch.ico")).Stream;
-        return new System.Drawing.Icon(stream, 32, 32);
+        tray = new TrayIcon(Overlay, Overlay.TrayMenu, OpenSettings);
     }
     public void TogglePause()
     {
         State.Paused = !State.Paused; State.Refresh();
-        if (pauseMenu != null) pauseMenu.Text = State.Paused ? "Resume WinNotch" : "Pause WinNotch";
     }
     public void ApplySettings(NotchSettings settings)
     {
@@ -184,7 +170,7 @@ public partial class App : Application
         SystemParameters.StaticPropertyChanged -= OnSystemPreference;
         signalRegistration?.Unregister(null); showSettingsSignal?.Dispose();
         expiryTimer?.Stop(); foreground?.Dispose(); Media?.Dispose(); Battery?.Dispose(); Audio?.Dispose();
-        if (tray != null) { tray.Visible = false; tray.Icon?.Dispose(); tray.ContextMenuStrip?.Dispose(); tray.Dispose(); }
+        tray?.Dispose();
         mutex?.Dispose(); base.OnExit(e);
     }
 }

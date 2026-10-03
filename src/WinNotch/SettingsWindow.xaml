@@ -15,7 +15,7 @@
           <TextBlock Text="LOCAL BY DESIGN" FontSize="9" FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}" Margin="12,28,0,8"/>
           <TextBlock Text="No account.&#x0a;No cloud.&#x0a;Just your desktop." FontSize="12" LineHeight="22" Foreground="{DynamicResource MutedBrush}" Margin="12,0"/>
         </StackPanel>
-        <TextBlock Grid.Row="2" Text="VERSION 0.1.0  /  PREVIEW" FontSize="9" Foreground="{DynamicResource MutedBrush}"/>
+        <TextBlock Grid.Row="2" Text="VERSION 0.1.1  /  PREVIEW" FontSize="9" Foreground="{DynamicResource MutedBrush}"/>
       </Grid>
     </Border>
     <Grid Grid.Column="1" Margin="30,27,30,20">

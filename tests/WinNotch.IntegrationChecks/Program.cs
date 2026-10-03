@@ -8,6 +8,9 @@ using Windows.Media.Playback;
 using Windows.Storage;
 using Windows.Storage.Streams;
 using WinNotch.Modules;
+using WinNotch.Native;
+using System.Windows.Interop;
+using System.Diagnostics;
 
 internal static class Program
 {
@@ -105,5 +108,54 @@ internal static class Program
         Console.WriteLine($"READ audio endpoint available={audio.Current.Available}; battery present={battery.Current.Present}");
         player.Pause(); transport.IsEnabled = false;
         Console.WriteLine("9 native media integration checks passed.");
+        await CheckFullscreenAsync(app);
+    }
+
+    private static async Task CheckFullscreenAsync(Application app)
+    {
+        using var foreground = new ForegroundService(app.Dispatcher, IntPtr.Zero);
+        var hidden = false;
+        foreground.Changed += (fullscreen, _) => hidden = fullscreen;
+        var window = new Window { Title = "WinNotch fullscreen test", Width = 480, Height = 280, Topmost = true, ResizeMode = ResizeMode.NoResize,
+            Background = Brushes.Black, Foreground = Brushes.White,
+            Content = new System.Windows.Controls.TextBlock { Text = "WinNotch window test\nThis test closes automatically.", FontSize = 22, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center } };
+        try
+        {
+            window.Show(); window.Activate();
+            var hwnd = new WindowInteropHelper(window).Handle;
+            var screen = Win32.PrimaryMonitor().Info.Monitor;
+            Win32.SetWindowPos(hwnd, new IntPtr(-1), screen.Left + 100, screen.Top + 100, 480, 280, 0);
+            Console.WriteLine("WAIT Bring 'WinNotch fullscreen test' to the foreground if Windows prevents activation.");
+            for (var i = 0; i < 300 && Win32.GetForegroundWindow() != hwnd; i++) await Task.Delay(100);
+            if (Win32.GetForegroundWindow() != hwnd) throw new Exception("Test fixture could not obtain foreground focus.");
+            await Task.Delay(700);
+            foreground.Check();
+            if (hidden)
+            {
+                Win32.SHQueryUserNotificationState(out var shellState);
+                throw new Exception($"Normal window incorrectly detected as fullscreen. ShellState={shellState}; covers={Win32.CoversMonitor(hwnd, screen)}; foreground={Win32.GetForegroundWindow() == hwnd}.");
+            }
+            Console.WriteLine("PASS Normal window stays visible");
+            window.WindowStyle = WindowStyle.None;
+            var clock = Stopwatch.StartNew();
+            Win32.SetWindowPos(hwnd, new IntPtr(-1), screen.Left, screen.Top, screen.Width, screen.Height, 0);
+            for (var i = 0; i < 30 && !hidden; i++) await Task.Delay(100);
+            if (!hidden)
+            {
+                Win32.GetClientRect(hwnd, out var client);
+                var origin = new Win32.Point(0, 0); Win32.ClientToScreen(hwnd, ref origin);
+                throw new Exception($"Real borderless fullscreen was not detected. Foreground={Win32.GetForegroundWindow() == hwnd}; client={origin.X},{origin.Y} {client.Width}x{client.Height}; monitor={screen.Left},{screen.Top} {screen.Width}x{screen.Height}.");
+            }
+            Console.WriteLine($"PASS Native fullscreen detected via window events ({clock.ElapsedMilliseconds} ms)");
+            window.WindowStyle = WindowStyle.SingleBorderWindow;
+            Win32.SetWindowPos(hwnd, new IntPtr(-1), screen.Left + 100, screen.Top + 100, 480, 280, 0);
+            await Task.Delay(180);
+            if (!hidden) throw new Exception("Fullscreen restoration did not wait for its debounce.");
+            Console.WriteLine("PASS Fullscreen exit respects restore delay");
+            for (var i = 0; i < 25 && hidden; i++) await Task.Delay(100);
+            if (hidden) throw new Exception("Foreground service did not restore after fullscreen exit.");
+            Console.WriteLine("PASS Fullscreen exit restores visibility, including own-process windows");
+        }
+        finally { window.Close(); }
     }
 }
