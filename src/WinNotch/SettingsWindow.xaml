@@ -1,0 +1,67 @@
+<Window x:Class="WinNotch.SettingsWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="WinNotch · Settings" Icon="Assets/WinNotch.ico" Style="{StaticResource {x:Type Window}}" Width="760" Height="690" MinWidth="650" MinHeight="520" Background="{DynamicResource CanvasBrush}" WindowStartupLocation="CenterScreen">
+  <Grid>
+    <Grid.ColumnDefinitions><ColumnDefinition Width="190"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+    <Border Background="#151719" BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,1,0">
+      <Grid Margin="24,30,20,24">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <StackPanel>
+          <Border Width="54" Height="24" Background="#050505" CornerRadius="0,0,11,11" HorizontalAlignment="Left" Margin="0,0,0,18"><Ellipse Width="4" Height="4" Fill="{DynamicResource AccentBrush}"/></Border>
+          <TextBlock Text="WinNotch" FontSize="23" FontWeight="SemiBold"/>
+          <TextBlock Text="A quieter kind of utility." FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,6,0,30"/>
+        </StackPanel>
+        <StackPanel Grid.Row="1">
+          <Border Background="#252C24" CornerRadius="8" Padding="12,10"><TextBlock Text="&#xE713;   Preferences" FontFamily="Segoe UI Variable, Segoe Fluent Icons" Foreground="{DynamicResource AccentBrush}" FontSize="13"/></Border>
+          <TextBlock Text="LOCAL BY DESIGN" FontSize="9" FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}" Margin="12,28,0,8"/>
+          <TextBlock Text="No account.&#x0a;No cloud.&#x0a;Just your desktop." FontSize="12" LineHeight="22" Foreground="{DynamicResource MutedBrush}" Margin="12,0"/>
+        </StackPanel>
+        <TextBlock Grid.Row="2" Text="VERSION 0.1.0  /  PREVIEW" FontSize="9" Foreground="{DynamicResource MutedBrush}"/>
+      </Grid>
+    </Border>
+    <Grid Grid.Column="1" Margin="30,27,30,20">
+      <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+      <StackPanel Margin="0,0,0,20">
+        <TextBlock Text="Make room for less." FontSize="27" FontWeight="SemiBold"/>
+        <TextBlock Text="Small details. Right where you need them." FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,7,0,0"/>
+      </StackPanel>
+      <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="0,0,12,0">
+        <StackPanel>
+          <Border Background="{DynamicResource CardBrush}" CornerRadius="14" Padding="18" Margin="0,0,0,18">
+            <StackPanel><TextBlock Text="CONNECTED TO YOUR DESKTOP" FontSize="9" Foreground="{DynamicResource AccentBrush}" FontWeight="SemiBold"/>
+              <TextBlock x:Name="DeviceStatus" Margin="0,9,0,0" FontSize="12" TextWrapping="Wrap"/>
+              <TextBlock x:Name="MediaStatus" Margin="0,6,0,0" FontSize="11" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap"/>
+            </StackPanel>
+          </Border>
+          <TextBlock Text="General" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,6"/>
+          <CheckBox x:Name="StartupCheck" Content="Start WinNotch when I sign in"/>
+          <CheckBox x:Name="TopmostCheck" Content="Keep the notch on top"/>
+          <CheckBox x:Name="FullscreenCheck" Content="Hide during fullscreen &amp; presentations"/>
+          <TextBlock Text="Appearance &amp; behavior" FontSize="16" FontWeight="SemiBold" Margin="0,23,0,12"/>
+          <Grid>
+            <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="14"/><ColumnDefinition/></Grid.ColumnDefinitions>
+            <StackPanel><TextBlock Text="Shape" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,7"/><ComboBox x:Name="ShapeSelect" AutomationProperties.Name="Notch shape"><ComboBoxItem Content="Attached to bezel"/><ComboBoxItem Content="Floating"/></ComboBox></StackPanel>
+            <StackPanel Grid.Column="2"><TextBlock Text="Size" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,7"/><ComboBox x:Name="SizeSelect" AutomationProperties.Name="Notch size"><ComboBoxItem Content="Small"/><ComboBoxItem Content="Default"/><ComboBoxItem Content="Large"/></ComboBox></StackPanel>
+          </Grid>
+          <TextBlock Text="Visibility" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,15,0,7"/>
+          <ComboBox x:Name="VisibilitySelect" AutomationProperties.Name="Notch visibility"><ComboBoxItem Content="Always visible"/><ComboBoxItem Content="Only when active"/><ComboBoxItem Content="Smart hide"/></ComboBox>
+          <TextBlock Text="Smart hide keeps an idle notch out of maximized title bars." FontSize="11" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,8,0,4"/>
+          <CheckBox x:Name="AnimationCheck" Content="Animate transitions"/>
+          <TextBlock Text="Windows reduced-motion preferences are always respected." FontSize="11" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap"/>
+          <TextBlock Text="Modules" FontSize="16" FontWeight="SemiBold" Margin="0,23,0,6"/>
+          <CheckBox x:Name="MediaCheck" Content="Media player &amp; album artwork"/>
+          <CheckBox x:Name="BatteryCheck" Content="Battery &amp; charging events"/>
+          <CheckBox x:Name="VolumeCheck" Content="Volume &amp; mute indicator"/>
+          <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0" Margin="0,18,0,0" Padding="0,14,0,12">
+            <TextBlock Text="Display: primary monitor · Scales with Windows&#x0a;Notifications and timers are planned for a later version.&#x0a;Media metadata stays in memory and is never logged." FontSize="11" LineHeight="19" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap"/>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+      <Grid Grid.Row="2" Margin="0,18,0,0">
+        <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <TextBlock x:Name="SaveStatus" FontSize="11" VerticalAlignment="Center" TextWrapping="Wrap" Foreground="{DynamicResource AccentBrush}" Margin="0,0,10,0"/>
+        <Button Grid.Column="1" Content="Open player" Click="OnPlayer" Margin="0,0,8,0"/>
+        <Button Grid.Column="2" Content="Save changes" Foreground="#10200D" Background="{DynamicResource AccentBrush}" Click="OnSave"/>
+      </Grid>
+    </Grid>
+  </Grid>
+</Window>
