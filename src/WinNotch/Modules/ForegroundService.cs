@@ -14,6 +14,12 @@ public sealed class ForegroundService : IDisposable
     private readonly IntPtr foregroundHook, locationHook;
     private readonly DispatcherTimer safetyTimer, debounce, restoreTimer;
     private bool hidden, maximized, disposed;
+    public NotchSettings Settings { get; set; } = new();
+    public bool IsExcluded { get; private set; }
+    public bool IsPresentation { get; private set; }
+    public string LastAppName { get; private set; } = "";
+    private IntPtr lastExternalWindow;
+    internal (IntPtr Handle, Win32.MonitorInfo Info) TargetMonitor { get; private set; } = Win32.PrimaryMonitor();
     public event Action<bool, bool>? Changed;
     public event Action? DisplayChanged;
 
@@ -37,30 +43,39 @@ public sealed class ForegroundService : IDisposable
         SystemEvents.DisplaySettingsChanged += OnDisplay;
     }
 
-    private void OnDisplay(object? sender, EventArgs e) => dispatcher.BeginInvoke(() => { DisplayChanged?.Invoke(); Check(); });
+    private void OnDisplay(object? sender, EventArgs e) => dispatcher.BeginInvoke(() => { Check(true, true); DisplayChanged?.Invoke(); });
 
-    public void Check(bool allowRestore = false)
+    public void Check(bool allowRestore = false, bool force = false)
     {
         if (disposed) return;
         var hwnd = Win32.GetForegroundWindow();
         // Preserve the underlying app context while interacting with the overlay itself.
         // Other WinNotch windows (settings) must still clear a previous fullscreen state.
-        if (hwnd == overlayWindow) return;
-        var primary = Win32.PrimaryMonitor();
-        var sameMonitor = Win32.MonitorFromWindow(hwnd, 2) == primary.Handle;
+        if (hwnd == overlayWindow) { if (!force) return; hwnd = lastExternalWindow; }
         var valid = hwnd != IntPtr.Zero && Win32.IsWindowVisible(hwnd) && !Win32.IsIconic(hwnd) && !Win32.IsDesktop(hwnd);
+        var app = valid ? Win32.AppName(hwnd) : "";
+        if (app.Length > 0) { lastExternalWindow = hwnd; LastAppName = app; }
+        var target = Win32.SelectMonitor(Settings, lastExternalWindow);
+        var moved = target.Handle != TargetMonitor.Handle || target.Info.Monitor.Bounds != TargetMonitor.Info.Monitor.Bounds;
+        TargetMonitor = target;
+        if (moved) DisplayChanged?.Invoke();
+        var sameMonitor = Win32.MonitorFromWindow(hwnd, 2) == target.Handle;
+        var excluded = DesktopPolicy.IsExcluded(app, Settings.ExcludedApps);
         var notificationState = Win32.SHQueryUserNotificationState(out var queriedState) == 0 ? queriedState : 5;
-        var fullscreen = DisplayPolicy.ShouldHide(notificationState, valid, sameMonitor, valid && Win32.CoversMonitor(hwnd, primary.Info.Monitor));
+        var presentation = notificationState is 1 or 4;
+        var fullscreen = DisplayPolicy.ShouldHide(notificationState, valid, sameMonitor, valid && Win32.CoversMonitor(hwnd, target.Info.Monitor));
         var isMaximized = valid && sameMonitor && Win32.IsZoomed(hwnd);
-        if (!fullscreen && hidden && !allowRestore)
+        if (!fullscreen && hidden && !allowRestore && excluded == IsExcluded)
         {
             if (!restoreTimer.IsEnabled) restoreTimer.Start();
             return;
         }
         if (fullscreen) restoreTimer.Stop();
-        if (fullscreen == hidden && maximized == isMaximized) return;
+        if (!force && fullscreen == hidden && maximized == isMaximized && excluded == IsExcluded && presentation == IsPresentation) return;
         hidden = fullscreen;
         maximized = isMaximized;
+        IsExcluded = excluded;
+        IsPresentation = presentation;
         Changed?.Invoke(hidden, maximized);
     }
 

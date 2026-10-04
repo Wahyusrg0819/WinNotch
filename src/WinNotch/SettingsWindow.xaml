@@ -15,7 +15,7 @@
           <TextBlock Text="LOCAL BY DESIGN" FontSize="9" FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}" Margin="12,28,0,8"/>
           <TextBlock Text="No account.&#x0a;No cloud.&#x0a;Just your desktop." FontSize="12" LineHeight="22" Foreground="{DynamicResource MutedBrush}" Margin="12,0"/>
         </StackPanel>
-        <TextBlock Grid.Row="2" Text="VERSION 0.1.1  /  PREVIEW" FontSize="9" Foreground="{DynamicResource MutedBrush}"/>
+        <TextBlock Grid.Row="2" Text="VERSION 0.2.2  /  PREVIEW" FontSize="9" Foreground="{DynamicResource MutedBrush}"/>
       </Grid>
     </Border>
     <Grid Grid.Column="1" Margin="30,27,30,20">
@@ -24,7 +24,7 @@
         <TextBlock Text="Make room for less." FontSize="27" FontWeight="SemiBold"/>
         <TextBlock Text="Small details. Right where you need them." FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,7,0,0"/>
       </StackPanel>
-      <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="0,0,12,0">
+      <ScrollViewer x:Name="PreferencesScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="0,0,12,0">
         <StackPanel>
           <Border Background="{DynamicResource CardBrush}" CornerRadius="14" Padding="18" Margin="0,0,0,18">
             <StackPanel><TextBlock Text="CONNECTED TO YOUR DESKTOP" FontSize="9" Foreground="{DynamicResource AccentBrush}" FontWeight="SemiBold"/>
@@ -35,7 +35,17 @@
           <TextBlock Text="General" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,6"/>
           <CheckBox x:Name="StartupCheck" Content="Start WinNotch when I sign in"/>
           <CheckBox x:Name="TopmostCheck" Content="Keep the notch on top"/>
-          <CheckBox x:Name="FullscreenCheck" Content="Hide during fullscreen &amp; presentations"/>
+          <TextBlock Text="During fullscreen" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,12,0,7"/>
+          <ComboBox x:Name="FullscreenSelect" AutomationProperties.Name="Fullscreen behavior"><ComboBoxItem Content="Hide all activity"/><ComboBoxItem Content="Critical alerts only (low battery)"/><ComboBoxItem Content="Show as usual"/></ComboBox>
+          <TextBlock Text="Presentations, a locked desktop, and excluded apps always hide the notch." FontSize="11" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+          <TextBlock Text="Display &amp; app exclusions" FontSize="16" FontWeight="SemiBold" Margin="0,23,0,12"/>
+          <ComboBox x:Name="DisplaySelect" AutomationProperties.Name="Display for the notch"/>
+          <Button Content="Refresh displays" Click="OnRefreshDisplays" HorizontalAlignment="Left" FontSize="11" Padding="10,5" Margin="0,8,0,0"/>
+          <TextBlock Text="If a selected display is unavailable, the primary display is used. Follow mode stays in place while you use the notch or settings." TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,8,0,12"/>
+          <TextBlock Text="Hide while these apps are active" FontSize="12" Margin="0,0,0,6"/>
+          <TextBox x:Name="ExclusionsText" AcceptsReturn="True" Height="72" VerticalScrollBarVisibility="Auto" Padding="8" Background="{DynamicResource CardBrush}" Foreground="{DynamicResource TextBrush}" BorderBrush="{DynamicResource LineBrush}" AutomationProperties.Name="Excluded executable names, one per line"/>
+          <Button Content="Add application…" Click="OnAddApplication" HorizontalAlignment="Left" FontSize="11" Padding="10,5" Margin="0,8,0,0"/>
+          <TextBlock Text="One executable per line, e.g. chrome.exe. Remove a line to allow it again, then Save changes. Applies to all apps with that executable name." TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,8,0,0"/>
           <TextBlock Text="Appearance &amp; behavior" FontSize="16" FontWeight="SemiBold" Margin="0,23,0,12"/>
           <Grid>
             <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="14"/><ColumnDefinition/></Grid.ColumnDefinitions>
@@ -46,13 +56,29 @@
           <ComboBox x:Name="VisibilitySelect" AutomationProperties.Name="Notch visibility"><ComboBoxItem Content="Always visible"/><ComboBoxItem Content="Only when active"/><ComboBoxItem Content="Smart hide"/></ComboBox>
           <TextBlock Text="Smart hide keeps an idle notch out of maximized title bars." FontSize="11" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,8,0,4"/>
           <CheckBox x:Name="AnimationCheck" Content="Animate transitions"/>
+          <ComboBox x:Name="AnimationSpeedSelect" AutomationProperties.Name="Animation speed" Margin="0,0,0,8"><ComboBoxItem Content="Relaxed animations"/><ComboBoxItem Content="Default animations"/><ComboBoxItem Content="Quick animations"/></ComboBox>
           <TextBlock Text="Windows reduced-motion preferences are always respected." FontSize="11" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap"/>
+          <TextBlock Text="Accent theme" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,15,0,7"/>
+          <ComboBox x:Name="ThemeSelect" AutomationProperties.Name="Accent theme"><ComboBoxItem Content="Leaf"/><ComboBoxItem Content="Ice"/><ComboBoxItem Content="Amber"/></ComboBox>
+          <CheckBox x:Name="TrueBlackCheck" Content="True black notch (otherwise near black)"/>
           <TextBlock Text="Modules" FontSize="16" FontWeight="SemiBold" Margin="0,23,0,6"/>
           <CheckBox x:Name="MediaCheck" Content="Media player &amp; album artwork"/>
           <CheckBox x:Name="BatteryCheck" Content="Battery &amp; charging events"/>
-          <CheckBox x:Name="VolumeCheck" Content="Volume &amp; mute indicator"/>
+          <CheckBox x:Name="VolumeCheck" Content="Volume slider, mute &amp; indicator"/>
+          <CheckBox x:Name="TimerCheck" Content="Timer &amp; Pomodoro (turning off cancels the timer)"/>
+          <CheckBox x:Name="BrightnessCheck" Content="Internal display brightness slider &amp; indicator"/>
+          <CheckBox x:Name="ClockCheck" Content="Show local time when idle"/>
+          <TextBlock Text="The clock follows your visibility setting. Media and timers take priority." FontSize="11" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+          <TextBlock Text="Notification previews" FontSize="16" FontWeight="SemiBold" Margin="0,16,0,6"/>
+          <CheckBox x:Name="NotificationsCheck" Content="Preview new Windows notifications"/>
+          <TextBlock Text="Content is processed locally, kept only in memory, and never logged. Dismissing a preview keeps the original in Windows." FontSize="11" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+          <WrapPanel>
+            <Button x:Name="NotificationAccessButton" Content="Allow access…" Click="OnNotificationAccess" FontSize="11" Padding="10,6" Margin="0,0,8,0"/>
+            <Button Content="Windows privacy settings" Click="OnNotificationPrivacy" FontSize="11" Padding="10,6"/>
+          </WrapPanel>
+          <TextBlock x:Name="NotificationStatus" TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,10,0,0"/>
           <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0" Margin="0,18,0,0" Padding="0,14,0,12">
-            <TextBlock Text="Display: primary monitor · Scales with Windows&#x0a;Notifications and timers are planned for a later version.&#x0a;Media metadata stays in memory and is never logged." FontSize="11" LineHeight="19" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap"/>
+            <TextBlock Text="Display placement scales with Windows.&#x0a;Timers run while WinNotch is open; exiting or restarting cancels them.&#x0a;Media metadata stays in memory and is never logged." FontSize="11" LineHeight="19" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap"/>
           </Border>
         </StackPanel>
       </ScrollViewer>

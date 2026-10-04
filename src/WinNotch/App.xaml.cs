@@ -1,6 +1,8 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Diagnostics;
+using System.Threading.Tasks;
 using System.Threading;
 using System.Windows;
 using System.Windows.Threading;
@@ -19,6 +21,7 @@ public partial class App : Application
     private TrayIcon? tray;
     private ForegroundService? foreground;
     private DispatcherTimer? expiryTimer;
+    private DispatcherTimer? countdownTick;
     private SettingsWindow? settingsWindow;
     private bool fullscreen, exiting;
     public NotchSettings Settings { get; private set; } = SettingsStore.Load();
@@ -26,12 +29,25 @@ public partial class App : Application
     public MediaService Media { get; private set; } = null!;
     public BatteryService Battery { get; private set; } = null!;
     public AudioService Audio { get; private set; } = null!;
+    public BrightnessService Brightness { get; private set; } = null!;
+    public NotificationService Notifications { get; private set; } = null!;
+    public NotificationPreview? LatestNotification { get; private set; }
+    public CountdownTimer Timer { get; } = new();
     public OverlayWindow Overlay { get; private set; } = null!;
     internal bool IsTrayRegistered => tray?.IsRegistered == true;
+    internal (IntPtr Handle, Win32.MonitorInfo Info) TargetMonitor => foreground?.TargetMonitor ?? Win32.SelectMonitor(Settings, Win32.GetForegroundWindow());
+    internal string LastAppName => foreground?.LastAppName ?? "";
 
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        var restartIndex = Array.IndexOf(e.Args, "--restart-from");
+        if (restartIndex >= 0 && restartIndex + 1 < e.Args.Length && int.TryParse(e.Args[restartIndex + 1], out var parentId) && parentId != Environment.ProcessId)
+        {
+            try { using var parent = Process.GetProcessById(parentId); await parent.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(10)); }
+            catch (ArgumentException) { }
+            catch (TimeoutException) { Shutdown(1); return; }
+        }
         mutex = new Mutex(true, @"Local\WinNotch.Singleton", out var first);
         if (!first)
         {
@@ -50,26 +66,51 @@ public partial class App : Application
             Media = new MediaService(Dispatcher);
             Battery = new BatteryService(Dispatcher);
             Audio = new AudioService(Dispatcher);
+            Brightness = new BrightnessService(Dispatcher);
+            Notifications = new NotificationService(Dispatcher);
             Overlay = new OverlayWindow(this);
             MainWindow = Overlay;
             State.Visibility = Settings.Visibility;
-            State.Changed += presentation => { Overlay.Render(presentation); UpdateExpiryTimer(); };
+            State.FullscreenBehavior = Settings.EffectiveFullscreen;
+            State.Changed += presentation =>
+            {
+                Overlay.Render(presentation); UpdateExpiryTimer();
+                if (!State.AcceptsEvent(80) && LatestNotification != null) DismissNotification();
+            };
             expiryTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(120), DispatcherPriority.Background,
                 (_, _) => { State.Refresh(); UpdateExpiryTimer(); }, Dispatcher);
             expiryTimer.Stop();
+            countdownTick = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, (_, _) => Timer.Tick(), Dispatcher);
+            countdownTick.Stop();
+            Timer.Changed += OnTimer;
+            Timer.Completed += () => Publish("timer", "\uE916", $"{Timer.Label} complete", "Open to continue", 90, 6);
             Media.Changed += OnMedia;
             Battery.Changed += OnBattery;
             Audio.Changed += OnAudio;
+            Brightness.Changed += (brightness, changed) =>
+            {
+                Overlay.UpdateBrightness(brightness);
+                if (Settings.Brightness && changed && brightness.Available)
+                    Publish("brightness", "\uE706", "Brightness", $"{brightness.Percent}%", 50, 2, brightness.Percent);
+            };
+            Notifications.Changed += OnNotification;
             Overlay.Show();
             Overlay.ApplySettings();
             Overlay.UpdateMedia(null);
+            Overlay.UpdateAudio(Audio.Current);
+            Overlay.UpdateTimer();
+            Brightness.SetEnabled(Settings.Brightness);
+            if (!e.Args.Contains("--smoke-test")) Notifications.SetEnabled(Settings.Notifications);
             Media.SetEnabled(Settings.Media);
             CreateTray();
             foreground = new ForegroundService(Dispatcher, new System.Windows.Interop.WindowInteropHelper(Overlay).Handle);
+            foreground.Settings = Settings;
             foreground.Changed += (hidden, maximized) =>
             {
                 fullscreen = hidden; State.MaximizedApp = maximized;
-                State.Suppressed = Settings.HideInFullscreen && hidden; State.Refresh();
+                State.Fullscreen = hidden;
+                State.Suppressed = foreground.IsExcluded || foreground.IsPresentation; State.Refresh();
+                if (!State.AcceptsEvent(80)) DismissNotification();
             };
             foreground.DisplayChanged += Overlay.Reposition;
             foreground.Check();
@@ -106,8 +147,17 @@ public partial class App : Application
     }
     private void OnAudio(AudioSnapshot audio, bool changed)
     {
+        Overlay.UpdateAudio(audio);
         if (Settings.Volume && changed && audio.Available)
             Publish("volume", audio.Muted ? "\uE74F" : "\uE767", audio.Muted ? "Muted" : "Volume", audio.Muted ? "" : $"{audio.Percent}%", 50, 2, audio.Muted ? 0 : audio.Percent);
+    }
+    private void OnTimer()
+    {
+        State.HasTimer = Settings.Timer && Timer.IsActive;
+        if (Timer.Status == TimerStatus.Running) countdownTick?.Start(); else countdownTick?.Stop();
+        if (Timer.Status != TimerStatus.Completed) State.Remove("timer");
+        Overlay.UpdateTimer();
+        State.Refresh();
     }
     private void OnBattery(BatterySnapshot previous, BatterySnapshot battery)
     {
@@ -128,18 +178,67 @@ public partial class App : Application
     public void TogglePause()
     {
         State.Paused = !State.Paused; State.Refresh();
+        if (State.Paused) DismissNotification();
     }
     public void ApplySettings(NotchSettings settings)
     {
         Settings = settings;
+        if (foreground != null) { foreground.Settings = settings; foreground.Check(true, true); }
         Media.SetEnabled(settings.Media);
         State.Visibility = settings.Visibility;
+        State.FullscreenBehavior = settings.EffectiveFullscreen;
         State.HasMedia = settings.Media && Media.Current != null;
-        State.Suppressed = settings.HideInFullscreen && fullscreen;
+        State.Fullscreen = fullscreen;
+        State.Suppressed = foreground?.IsExcluded == true || foreground?.IsPresentation == true;
         if (!settings.Media) State.Remove("media");
         if (!settings.Battery) State.Remove("battery");
         if (!settings.Volume) State.Remove("volume");
+        if (!settings.Timer) Timer.Cancel();
+        if (!settings.Brightness) State.Remove("brightness");
+        Brightness.SetEnabled(settings.Brightness);
+        Notifications.SetEnabled(settings.Notifications);
+        if (!settings.Notifications || !State.AcceptsEvent(80)) DismissNotification();
+        ApplySystemColors();
         State.Refresh(); Overlay.ApplySettings(); Overlay.UpdateMedia(settings.Media ? Media.Current : null);
+        Overlay.UpdateAudio(Audio.Current); Overlay.UpdateTimer(); Overlay.UpdateBrightness(Brightness.Current); Overlay.UpdateNotification();
+    }
+    internal void OnNotification(NotificationPreview? preview)
+    {
+        if (preview == null) { DismissNotification(); return; }
+        if (!Settings.Notifications || !State.AcceptsEvent(80)) return;
+        LatestNotification = preview;
+        Overlay.UpdateNotification();
+        Publish("notification", "\uE7E7", preview.App, preview.Title, 80, 5);
+    }
+    internal void DismissNotification()
+    {
+        LatestNotification = null; State.Remove("notification"); Overlay.UpdateNotification();
+    }
+    public void Restart()
+    {
+        if (Timer.IsActive && MessageBox.Show("Restarting will cancel the current timer. Restart WinNotch?", "WinNotch", MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return;
+        try
+        {
+            var executable = Environment.ProcessPath ?? throw new InvalidOperationException();
+            using var process = Process.Start(new ProcessStartInfo(executable) { UseShellExecute = false, Arguments = $"--restart-from {Environment.ProcessId} --background" });
+            if (process == null) throw new InvalidOperationException();
+            Shutdown();
+        }
+        catch (Exception ex)
+        {
+            SettingsStore.Log("app.restart", ex);
+            MessageBox.Show("WinNotch could not restart. Your current session is still open.", "WinNotch", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+    internal void ExcludeApp(string app)
+    {
+        try
+        {
+            var updated = Settings with { ExcludedApps = DesktopPolicy.NormalizeApps(Settings.ExcludedApps.Append(app)) };
+            SettingsStore.Save(updated); ApplySettings(updated);
+            settingsWindow?.ReloadExclusions();
+        }
+        catch (Exception ex) { SettingsStore.Log("settings.exclude", ex); OpenSettings(); }
     }
     public void OpenSettings()
     {
@@ -161,7 +260,7 @@ public partial class App : Application
         Resources["CardBrush"] = contrast ? SystemColors.WindowBrush : Brush("#191B1D");
         Resources["TextBrush"] = contrast ? SystemColors.WindowTextBrush : Brush("#F4F5F5");
         Resources["MutedBrush"] = contrast ? SystemColors.WindowTextBrush : Brush("#999FA3");
-        Resources["AccentBrush"] = contrast ? SystemColors.HighlightBrush : Brush("#C8F7AD");
+        Resources["AccentBrush"] = contrast ? SystemColors.HighlightBrush : Brush(Settings.Theme switch { AccentTheme.Ice => "#AAD9FF", AccentTheme.Amber => "#FFD396", _ => "#C8F7AD" });
         Resources["LineBrush"] = contrast ? SystemColors.WindowTextBrush : Brush("#2C2F31");
     }
     protected override void OnExit(ExitEventArgs e)
@@ -169,7 +268,7 @@ public partial class App : Application
         exiting = true;
         SystemParameters.StaticPropertyChanged -= OnSystemPreference;
         signalRegistration?.Unregister(null); showSettingsSignal?.Dispose();
-        expiryTimer?.Stop(); foreground?.Dispose(); Media?.Dispose(); Battery?.Dispose(); Audio?.Dispose();
+        expiryTimer?.Stop(); countdownTick?.Stop(); foreground?.Dispose(); Media?.Dispose(); Battery?.Dispose(); Audio?.Dispose(); Brightness?.Dispose(); Notifications?.Dispose();
         tray?.Dispose();
         mutex?.Dispose(); base.OnExit(e);
     }

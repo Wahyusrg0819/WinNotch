@@ -1,6 +1,9 @@
 using System;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Collections.Generic;
+using System.Linq;
+using System.IO;
 using WinNotch.Core;
 
 namespace WinNotch.Native;
@@ -10,7 +13,16 @@ internal static class Win32
     internal const int GwlExStyle = -20, ToolWindow = 0x80, NoActivate = 0x08000000;
     [StructLayout(LayoutKind.Sequential)] internal struct Point { public int X, Y; public Point(int x, int y) { X = x; Y = y; } }
     [StructLayout(LayoutKind.Sequential)] internal struct Rect { public int Left, Top, Right, Bottom; public int Width => Right - Left; public int Height => Bottom - Top; public PixelBounds Bounds => new(Left, Top, Width, Height); }
-    [StructLayout(LayoutKind.Sequential)] internal struct MonitorInfo { public int Size; public Rect Monitor, Work; public uint Flags; }
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)] internal struct MonitorInfo
+    {
+        public int Size; public Rect Monitor, Work; public uint Flags;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string Device;
+    }
+    internal delegate bool MonitorCallback(IntPtr monitor, IntPtr dc, ref Rect bounds, IntPtr data);
+    [DllImport("user32.dll")] private static extern bool EnumDisplayMonitors(IntPtr dc, IntPtr clip, MonitorCallback callback, IntPtr data);
+    [DllImport("kernel32.dll")] private static extern IntPtr OpenProcess(uint access, bool inherit, uint processId);
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] private static extern bool QueryFullProcessImageName(IntPtr process, uint flags, StringBuilder name, ref uint size);
+    [DllImport("kernel32.dll")] private static extern bool CloseHandle(IntPtr handle);
     internal delegate void WinEventDelegate(IntPtr hook, uint eventType, IntPtr hwnd, int objectId, int childId, uint threadId, uint time);
     [DllImport("user32.dll")] internal static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll")] internal static extern bool SetForegroundWindow(IntPtr hwnd);
@@ -41,6 +53,44 @@ internal static class Win32
         var info = new MonitorInfo { Size = Marshal.SizeOf<MonitorInfo>() };
         GetMonitorInfo(handle, ref info);
         return (handle, info);
+    }
+
+    internal static List<(IntPtr Handle, MonitorInfo Info)> Displays()
+    {
+        var result = new List<(IntPtr, MonitorInfo)>();
+        EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, (IntPtr handle, IntPtr dc, ref Rect bounds, IntPtr data) =>
+        {
+            var info = new MonitorInfo { Size = Marshal.SizeOf<MonitorInfo>() };
+            if (GetMonitorInfo(handle, ref info)) result.Add((handle, info));
+            return true;
+        }, IntPtr.Zero);
+        if (result.Count == 0) result.Add(PrimaryMonitor());
+        return result;
+    }
+
+    internal static (IntPtr Handle, MonitorInfo Info) SelectMonitor(NotchSettings settings, IntPtr activeWindow)
+    {
+        var displays = Displays();
+        var primary = displays.FirstOrDefault(item => (item.Info.Flags & 1) != 0);
+        if (primary.Handle == IntPtr.Zero) primary = displays[0];
+        var active = displays.FirstOrDefault(item => item.Handle == MonitorFromWindow(activeWindow, 0));
+        var name = DesktopPolicy.SelectDisplay(settings.Display, settings.SelectedDisplay, active.Info.Device,
+            displays.Select(item => item.Info.Device).ToArray(), primary.Info.Device);
+        return displays.First(item => item.Info.Device == name);
+    }
+
+    internal static string AppName(IntPtr window)
+    {
+        GetWindowThreadProcessId(window, out var pid);
+        if (pid == 0 || pid == Environment.ProcessId) return "";
+        var process = OpenProcess(0x1000, false, pid);
+        if (process == IntPtr.Zero) return "";
+        try
+        {
+            var path = new StringBuilder(32768); uint length = (uint)path.Capacity;
+            return QueryFullProcessImageName(process, 0, path, ref length) ? Path.GetFileName(path.ToString()).ToLowerInvariant() : "";
+        }
+        finally { CloseHandle(process); }
     }
 
     internal static bool IsDesktop(IntPtr window)

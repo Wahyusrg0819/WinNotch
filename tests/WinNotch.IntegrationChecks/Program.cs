@@ -11,6 +11,7 @@ using WinNotch.Modules;
 using WinNotch.Native;
 using System.Windows.Interop;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 
 internal static class Program
 {
@@ -20,10 +21,81 @@ internal static class Program
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
         app.Startup += async (_, _) =>
         {
-            try { await RunAsync(app); app.Shutdown(); }
+            try
+            {
+                if (Environment.GetCommandLineArgs().Contains("--controls-only")) await CheckAudioControlsAsync(app);
+                else await RunAsync(app);
+                app.Shutdown();
+            }
             catch (Exception error) { Console.Error.WriteLine(error); app.Shutdown(1); }
         };
         Environment.ExitCode = app.Run();
+    }
+
+    private static async Task CheckAudioControlsAsync(Application app)
+    {
+        using var audio = new AudioService(app.Dispatcher);
+        if (!audio.Current.Available) throw new Exception("An audio output is needed for the control integration check.");
+        var enumerator = (IMMDeviceEnumerator)new DeviceEnumeratorCom();
+        IMMDevice? device = null;
+        IAudioEndpointVolume? endpoint = null;
+        var context = Guid.NewGuid();
+        float originalLevel = 0;
+        bool originalMute = false, captured = false;
+        var passed = 0;
+        void Expect(bool result, string name)
+        { if (!result) throw new Exception("FAIL " + name); Console.WriteLine("PASS " + name); passed++; }
+        try
+        {
+            Marshal.ThrowExceptionForHR(enumerator.GetDefaultAudioEndpoint(0, 1, out device));
+            var id = typeof(IAudioEndpointVolume).GUID;
+            Marshal.ThrowExceptionForHR(device.Activate(ref id, 23, IntPtr.Zero, out var instance));
+            endpoint = (IAudioEndpointVolume)instance;
+            Marshal.ThrowExceptionForHR(endpoint.GetMasterVolumeLevelScalar(out originalLevel));
+            Marshal.ThrowExceptionForHR(endpoint.GetMute(out originalMute));
+            captured = true;
+            var ownPeeks = 0;
+            audio.Changed += (_, changed) => { if (changed) ownPeeks++; };
+            // Silence first, so testing mute/unmute cannot increase audible output.
+            Expect(audio.SetVolume(0), "Volume write succeeds");
+            Marshal.ThrowExceptionForHR(endpoint.GetMasterVolumeLevelScalar(out var actual));
+            Expect(actual == 0 && audio.Current.Percent == 0, "Independent endpoint read confirms the volume write");
+            Expect(audio.SetMuted(true), "Mute write succeeds");
+            Marshal.ThrowExceptionForHR(endpoint.GetMute(out var muted));
+            Expect(muted && audio.Current.Muted, "Independent endpoint read confirms mute");
+            Expect(audio.SetMuted(false), "Unmute works while volume is zero");
+            Marshal.ThrowExceptionForHR(endpoint.GetMute(out muted));
+            Expect(!muted && !audio.Current.Muted, "Independent endpoint read confirms unmute");
+            await Task.Delay(200);
+            Expect(ownPeeks == 0, "Our controls do not generate duplicate volume peeks");
+            Expect(!audio.SetVolume(double.NaN) && !audio.SetVolume(double.PositiveInfinity) && !audio.SetVolume(-1) && !audio.SetVolume(101), "Nonfinite and out-of-range volume inputs are rejected");
+            Marshal.ThrowExceptionForHR(endpoint.SetMute(true, ref context));
+            for (var i = 0; i < 20 && !audio.Current.Muted; i++) await Task.Delay(50);
+            Expect(audio.Current.Muted && ownPeeks > 0, "External endpoint changes flow back to the control state");
+        }
+        finally
+        {
+            try
+            {
+                if (captured && endpoint != null)
+                {
+                    Marshal.ThrowExceptionForHR(endpoint.SetMute(originalMute, ref context));
+                    Marshal.ThrowExceptionForHR(endpoint.SetMasterVolumeLevelScalar(originalLevel, ref context));
+                    Marshal.ThrowExceptionForHR(endpoint.GetMute(out var restoredMute));
+                    Marshal.ThrowExceptionForHR(endpoint.GetMasterVolumeLevelScalar(out var restoredLevel));
+                    Expect(restoredMute == originalMute && Math.Abs(restoredLevel - originalLevel) < 0.0001, "Original volume and mute state restored exactly");
+                }
+            }
+            finally
+            {
+                if (endpoint != null) Marshal.ReleaseComObject(endpoint);
+                if (device != null) Marshal.ReleaseComObject(device);
+                Marshal.ReleaseComObject(enumerator);
+            }
+        }
+        audio.Dispose();
+        Expect(!audio.SetVolume(10) && !audio.SetMuted(true), "Disposed audio service safely rejects controls");
+        Console.WriteLine($"{passed} native audio control checks passed.");
     }
 
     private static async Task RunAsync(Application app)

@@ -10,12 +10,25 @@ public sealed record NotchSettings
     public bool Media { get; init; } = true;
     public bool Battery { get; init; } = true;
     public bool Volume { get; init; } = true;
+    public bool Timer { get; init; } = true;
+    public bool Notifications { get; init; }
+    public bool Brightness { get; init; } = true;
+    public bool Clock { get; init; }
+    public AccentTheme Theme { get; init; } = AccentTheme.Leaf;
+    public bool TrueBlack { get; init; }
+    public double AnimationSpeed { get; init; } = 1;
+    public FullscreenMode? Fullscreen { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore]
+    public FullscreenMode EffectiveFullscreen => Fullscreen ?? (HideInFullscreen ? FullscreenMode.Hide : FullscreenMode.Show);
     public bool Animations { get; init; } = true;
     public bool HideInFullscreen { get; init; } = true;
     public bool AlwaysOnTop { get; init; } = true;
     public bool Floating { get; init; }
     public double Scale { get; init; } = 1;
     public VisibilityMode Visibility { get; init; } = VisibilityMode.SmartHide;
+    public DisplayMode Display { get; init; } = DisplayMode.Primary;
+    public string SelectedDisplay { get; init; } = "";
+    public string[] ExcludedApps { get; init; } = Array.Empty<string>();
 }
 
 public static class SettingsStore
@@ -28,7 +41,12 @@ public static class SettingsStore
         {
             var settings = JsonSerializer.Deserialize<NotchSettings>(File.ReadAllText(FilePath)) ?? new();
             return settings with { Scale = settings.Scale is >= 0.85 and <= 1.2 ? settings.Scale : 1,
-                Visibility = Enum.IsDefined(settings.Visibility) ? settings.Visibility : VisibilityMode.SmartHide };
+                Visibility = Enum.IsDefined(settings.Visibility) ? settings.Visibility : VisibilityMode.SmartHide,
+                Display = Enum.IsDefined(settings.Display) ? settings.Display : DisplayMode.Primary,
+                Theme = Enum.IsDefined(settings.Theme) ? settings.Theme : AccentTheme.Leaf,
+                AnimationSpeed = settings.AnimationSpeed is >= 0.5 and <= 2 ? settings.AnimationSpeed : 1,
+                Fullscreen = settings.Fullscreen.HasValue && Enum.IsDefined(settings.Fullscreen.Value) ? settings.Fullscreen : null,
+                SelectedDisplay = settings.SelectedDisplay ?? "", ExcludedApps = DesktopPolicy.NormalizeApps(settings.ExcludedApps) };
         }
         catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException) { return new(); }
     }

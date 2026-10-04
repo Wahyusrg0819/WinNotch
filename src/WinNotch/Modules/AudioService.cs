@@ -16,6 +16,7 @@ public sealed class AudioService : IAudioEndpointVolumeCallback, IMMNotification
     private IMMDevice? device;
     private IAudioEndpointVolume? volume;
     private bool disposed;
+    private Guid changeContext = Guid.NewGuid();
     public AudioSnapshot Current { get; private set; } = new(false, 0, false);
     public event Action<AudioSnapshot, bool>? Changed;
 
@@ -43,11 +44,9 @@ public sealed class AudioService : IAudioEndpointVolumeCallback, IMMNotification
             Marshal.ThrowExceptionForHR(device.Activate(ref id, 23, IntPtr.Zero, out var instance));
             volume = (IAudioEndpointVolume)instance;
             Marshal.ThrowExceptionForHR(volume.RegisterControlChangeNotify(this));
-            Marshal.ThrowExceptionForHR(volume.GetMasterVolumeLevelScalar(out var level));
-            Marshal.ThrowExceptionForHR(volume.GetMute(out var muted));
-            Current = new(true, (int)Math.Round(level * 100), muted);
+            ReadCurrent();
         }
-        catch (Exception ex) { Current = new(false, 0, false); SettingsStore.Log("audio.endpoint", ex); }
+        catch (Exception ex) { ReleaseEndpoint(); Current = new(false, 0, false); SettingsStore.Log("audio.endpoint", ex); }
         Changed?.Invoke(Current, false);
     }
 
@@ -58,11 +57,45 @@ public sealed class AudioService : IAudioEndpointVolumeCallback, IMMNotification
         dispatcher.BeginInvoke(() =>
         {
             if (disposed) return;
-            var next = new AudioSnapshot(true, (int)Math.Round(notification.Volume * 100), notification.Muted != 0);
-            if (next == Current) return;
-            Current = next; Changed?.Invoke(Current, true);
+            // Read the currently bound device: a queued callback may belong to a removed endpoint.
+            try
+            {
+                var previous = Current;
+                ReadCurrent();
+                if (previous != Current) Changed?.Invoke(Current, notification.Context != changeContext);
+            }
+            catch (Exception ex) { SettingsStore.Log("audio.read", ex); Bind(); }
         });
         return 0;
+    }
+
+    private void ReadCurrent()
+    {
+        if (volume == null) { Current = new(false, 0, false); return; }
+        Marshal.ThrowExceptionForHR(volume.GetMasterVolumeLevelScalar(out var level));
+        Marshal.ThrowExceptionForHR(volume.GetMute(out var muted));
+        Current = new(true, (int)Math.Round(level * 100), muted);
+    }
+
+    public bool SetVolume(double percent)
+    {
+        if (!double.IsFinite(percent) || percent < 0 || percent > 100) return false;
+        return Write(() => volume!.SetMasterVolumeLevelScalar((float)(percent / 100), ref changeContext));
+    }
+
+    public bool SetMuted(bool muted) => Write(() => volume!.SetMute(muted, ref changeContext));
+
+    private bool Write(Func<int> operation)
+    {
+        if (disposed || volume == null || !Current.Available) return false;
+        try
+        {
+            Marshal.ThrowExceptionForHR(operation());
+            ReadCurrent();
+            Changed?.Invoke(Current, false);
+            return true;
+        }
+        catch (Exception ex) { SettingsStore.Log("audio.control", ex); Bind(); return false; }
     }
 
     private void Rebind() { if (!disposed) dispatcher.BeginInvoke(Bind); }

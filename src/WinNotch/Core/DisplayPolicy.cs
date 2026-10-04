@@ -11,7 +11,7 @@ public readonly record struct PixelBounds(int Left, int Top, int Width, int Heig
 
 public static class DisplayPolicy
 {
-    public const double CanvasWidth = 500, CanvasHeight = 270;
+    public const double CanvasWidth = 500, CanvasHeight = 310;
 
     public static PixelBounds PlaceOverlay(PixelBounds monitor, uint dpi)
     {
