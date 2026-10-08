@@ -18,6 +18,8 @@ to one small space at the top of your screen.
 
 [Preview](#see-it-in-action) · [Features](#small-space-useful-details) · [Get started](#get-started) · [Build](#build-from-source) · [Status](#current-status) · [Roadmap](#roadmap)
 
+**[Download v0.2.9 preview for Windows 11 x64](https://github.com/Wahyusrg0819/WinNotch/releases/tag/v0.2.9-preview)**
+
 <img src="docs/images/timer.png" alt="WinNotch timer panel with focus and break presets, custom minutes, and system volume controls" width="500">
 
 *Always available, rarely distracting.*
@@ -93,11 +95,13 @@ A paused media session stays compact while Windows continues to expose it. The s
 
 The preview targets **Windows 11 x64**. The published portable executable includes the .NET runtime and does not require administrator access.
 
-1. If you already have the portable build, keep its folder in a permanent location. Otherwise, [build it from source](#build-from-source).
+1. Download `WinNotch-0.2.9-preview-win-x64.zip` from the [preview release](https://github.com/Wahyusrg0819/WinNotch/releases/tag/v0.2.9-preview), then extract it to a permanent folder. You can also [build from source](#build-from-source).
 2. Open `WinNotch.exe` (`dist\WinNotch\WinNotch.exe` after publishing locally).
 3. Start playback in an app that exposes a Windows media session, then click the notch to open the player.
 
 The `dist/` folder is generated locally and is excluded from Git; cloning the repository gives you the source, not the portable executable.
+
+The release includes `SHA256SUMS.txt` for download verification. The portable executable is unsigned, so Windows may display an unknown-publisher warning. Download it from this repository's release page. No MSIX installation is required; the unsigned development MSIX is not distributed with this preview.
 
 The single-file build is intentionally uncompressed (~158 MiB): this avoids the memory and startup cost measured with the previous compressed executable. No .NET runtime installation is needed.
 
