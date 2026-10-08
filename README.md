@@ -6,9 +6,9 @@
 
 # WinNotch
 
-**A quiet place for what's playing.**
+**Music, focus, and everyday controls. One quiet notch.**
 
-A native Windows notch that brings your music, timers, volume, and battery moments<br>
+A native Windows notch for music, timers, local plans, downloads, and device controls<br>
 to one small space at the top of your screen.
 
 ![Windows 11](https://img.shields.io/badge/Windows_11-x64-0078D4?style=flat-square)
@@ -16,7 +16,7 @@ to one small space at the top of your screen.
 ![WPF](https://img.shields.io/badge/UI-WPF-191B1D?style=flat-square)
 ![Preview](https://img.shields.io/badge/status-v0.2.9_preview-C9F7A7?style=flat-square&labelColor=252C24)
 
-[Preview](#see-it-in-action) · [Get started](#get-started) · [Build](#build-from-source) · [Roadmap](#roadmap) · [Validation](VALIDATION.md)
+[Preview](#see-it-in-action) · [Features](#small-space-useful-details) · [Get started](#get-started) · [Build](#build-from-source) · [Status](#current-status) · [Roadmap](#roadmap)
 
 <img src="docs/images/timer.png" alt="WinNotch timer panel with focus and break presets, custom minutes, and system volume controls" width="500">
 
@@ -41,6 +41,13 @@ Built with **C#, .NET 10, WPF, and native Windows APIs**. No browser engine, acc
 | Track information stays close by. | An event appears, then the previous state returns. |
 
 These media/charging captures are from the v0.1 UI smoke test; the timer is from v0.2.0 and preferences from v0.2.2. The charging capture uses a **test fixture**; normal operation shows live device events. The compact capture contains an active media session, rather than the empty idle notch.
+
+| Local plans | Downloads | Bluetooth |
+| :---: | :---: | :---: |
+| ![Agenda showing the next local event](docs/images/calendar.png) | ![Files panel showing an observed download completion](docs/images/downloads.png) | ![Bluetooth panel with paired devices and radio controls](docs/images/bluetooth.png) |
+| Your next event, without an account. | Temporary files and observed completions. | Paired devices and available battery readings. |
+
+These three captures are from the **v0.2.9 smoke test with synthetic events, files, and devices**. They illustrate the interface; they do not verify physical Bluetooth hardware or real browser downloads.
 
 <details>
 <summary><strong>A look at preferences</strong></summary>
@@ -113,6 +120,9 @@ On the **Timer** tab, choose a preset or enter a whole number of minutes. The co
 
 Startup is opt-in through settings. It creates a per-user Windows Run entry pointing to the current executable; turn startup off before moving or deleting that executable.
 
+<details>
+<summary><strong>Calendar, Downloads, Bluetooth, and notification setup</strong></summary>
+
 Open **Agenda → Manage agenda**, **Settings → Manage agenda**, or **Open agenda** in the tray menu. Enter a title, date, and 24-hour time, then add the event. Select a saved event to edit or delete it. Dates use the current local time zone; the saved instant stays fixed if the system time zone changes. Repeated or nonexistent daylight-saving times are rejected. Past events remain available until deleted; the local agenda holds up to 1,000 events.
 
 Calendar is enabled by default and can be turned off in Settings without deleting events. It checks upcoming events every 15 seconds and stops its timer when disabled or no future events remain. Reminders are silent and appear once in the five-minute window before the event. Starting WinNotch or resuming within that window can show a reminder; events that have already started do not replay. Pause, exclusions, and fullscreen hiding suppress reminders without replaying them later. Events and consumed reminder status survive restart. Recurrence, cloud sync, and ICS import are not included.
@@ -128,6 +138,8 @@ Open the **Bluetooth icon** or **Open Bluetooth** in the tray menu. The panel re
 **Turn on / Turn off** changes the controllable Bluetooth radios. Windows may request permission on first use; denied access or hardware policy leaves a status message and the **Windows settings** shortcut available. Turning off disconnects Bluetooth accessories, including keyboards, mice, and audio. Success is shown only after reading back the requested radio state; an accepted but unconfirmed request asks you to refresh. Disabling the module stops its reads and leaves the radio unchanged. It does not control Wi-Fi or airplane mode.
 
 For notifications, use **Settings → Notification previews → Allow access**, respond to the Windows prompt, enable previews, then save. Permission is never requested automatically. Denial leaves other features working. If Windows rejects the portable build, follow the [MSIX packaging notes](packaging/README.md); the generated package must be signed and trusted before installation. Dismissing a preview affects only WinNotch. The latest preview is cleared on disable, pause, exclusion, presentation, or fullscreen hiding; there is no stored notification history.
+
+</details>
 
 ## Build from source
 
@@ -155,6 +167,9 @@ From the repository root, run:
 ### Run the checks
 
 Close any running WinNotch instance before the UI smoke test. Run desktop checks in a normal Windows desktop session.
+
+<details>
+<summary><strong>Desktop test commands, coverage, and measurement guidance</strong></summary>
 
 ```powershell
 # UI/native smoke test against the published executable
@@ -217,6 +232,23 @@ The [15-minute stability results](docs/STABILITY.md) include reclaimed Settings 
 
 [VALIDATION.md](VALIDATION.md) records the preview's checked results and the hardware/manual checks still needed. Short resource samples are not long-running performance guarantees.
 
+</details>
+
+## Current status
+
+**Functional preview, with performance and hardware validation still in progress.** The latest recorded checks were run on 8 October 2026 on Windows 11 x64, using one laptop display at 125% scaling.
+
+| Checkpoint | Recorded result |
+| --- | --- |
+| **v0.2.9 feature validation** | 233 checks passed: 105 core and 128 published UI/native checks. A real internal-display brightness change was read back and restored. |
+| **Current source** | The diagnostic follow-up build passed 105 core checks with no warnings or errors. It does not replace the previously validated portable artifact. |
+| **Memory after repeated use** | Corrected short benchmark: 158–161 MiB working set. The correction releases a reference in the test harness; it is not an application RAM improvement. |
+| **15-minute stability check** | 178 samples, ten interaction cycles, all seven panels. Working set averaged 167.7 MiB and peaked at 173.0 MiB. All ten closed Settings windows were reclaimed; Bluetooth polling stopped after collapse. Longer-term private-memory growth remains unresolved. |
+| **First expansion, including layout** | v0.2.9 release samples: 117.1–124.4 ms. This does not establish the <100 ms response target or animation completion time. |
+| **Release readiness** | The ≤120 MB memory target remains unmet. Multi-hour use, physical sleep/resume, sustained 60 FPS, and broader hardware/accessibility checks remain open. The MSIX is unsigned and uninstalled. |
+
+The short benchmark and stability run use different workloads; their memory figures are not a before/after comparison. Read the [feature and performance validation](VALIDATION.md), [memory investigation](docs/MEMORY-PROFILE.md), and [stability report](docs/STABILITY.md) for methods and limitations.
+
 ## Local by design
 
 - Settings live in `%LOCALAPPDATA%\WinNotch\settings.json`.
@@ -234,12 +266,13 @@ This roadmap describes the public implementation plan. The local product brief i
 | Milestone | Scope |
 | --- | --- |
 | **v0.2.9 · Current preview** | Deferred module controls, fewer repeated panel updates, and a repeatable interaction benchmark. Retains all previous modules. |
-| **Next priority** | Continue the release checkpoint: reduce memory after normal use, meet panel-response targets, and validate sleep/resume plus remaining hardware behavior. |
-| **Before release** | Recheck memory after normal use, responsiveness, animation, and broader hardware. The ≤120 MB target remains open. Signed MSIX installation is a separate distribution step. |
-| **Later PRD modules** | Custom modules and plugin API need more detailed requirements. Calendar uses local one-time events; Downloads uses local folder observation, as requested. |
+| **1 · Memory and longer sessions** | Investigate private/native memory after natural collections, then repeat longer sessions to assess growth and improvements against the ≤120 MB target. |
+| **2 · Responsiveness** | Bring first-use panel response below 100 ms and measure sustained animation frame rate and cold startup. |
+| **3 · Hardware and release checks** | Validate sleep/resume, the remaining device/accessibility cases below, and broader systems. Signed MSIX installation is a separate distribution step. |
+| **Later · Extensibility** | Specify custom modules and the plugin API after the release checkpoint. Calendar currently uses local one-time events; Downloads observes one local folder. |
 | **Validation still needed** | Active timer/media continuity through sleep, wake-up latency, physical charger/audio-device transitions, external media players, exclusive fullscreen games, startup on other systems, accessibility preferences, and physical mixed-DPI monitors. |
 
-The v0.1.1 packaging/tray changes reduced measured idle memory from about **303 to 135 MiB**. The ≤120 MB target remains open, and cold boot startup and sustained 60 FPS still need measurement. See [performance measurements and their limits](VALIDATION.md).
+Physical Bluetooth on/off, its permission flow, and real-device battery reporting still need verification; simulated UI checks do not cover those behaviors. See [current results](#current-status) before treating the preview as release-ready.
 
 ## Under the hood
 
