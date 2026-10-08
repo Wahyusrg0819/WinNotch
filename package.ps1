@@ -11,7 +11,7 @@ New-Item -ItemType Directory -Force -Path (Join-Path $packageRoot 'Assets') | Ou
 Copy-Item -LiteralPath $published -Destination (Join-Path $packageRoot 'WinNotch.exe') -Force
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'packaging\AppxManifest.xml') -Destination (Join-Path $packageRoot 'AppxManifest.xml') -Force
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'docs\images\winnotch-icon.png') -Destination (Join-Path $packageRoot 'Assets\Logo.png') -Force
-$output = Join-Path $PSScriptRoot 'dist\WinNotch-0.2.2-x64.msix'
+$output = Join-Path $PSScriptRoot 'dist\WinNotch-0.2.9-x64.msix'
 & $makeappx pack /d $packageRoot /p $output /o
 if ($LASTEXITCODE -ne 0) { throw 'MSIX packaging failed.' }
 if ($SigningCertificateThumbprint) {

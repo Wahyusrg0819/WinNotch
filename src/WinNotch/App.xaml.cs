@@ -22,7 +22,9 @@ public partial class App : Application
     private ForegroundService? foreground;
     private DispatcherTimer? expiryTimer;
     private DispatcherTimer? countdownTick;
+    private DispatcherTimer? calendarTick;
     private SettingsWindow? settingsWindow;
+    private AgendaWindow? agendaWindow;
     private bool fullscreen, exiting;
     public NotchSettings Settings { get; private set; } = SettingsStore.Load();
     public NotchStateManager State { get; } = new();
@@ -31,8 +33,13 @@ public partial class App : Application
     public AudioService Audio { get; private set; } = null!;
     public BrightnessService Brightness { get; private set; } = null!;
     public NotificationService Notifications { get; private set; } = null!;
+    public DownloadService Downloads { get; private set; } = null!;
+    internal BluetoothService Bluetooth { get; set; } = null!;
     public NotificationPreview? LatestNotification { get; private set; }
     public CountdownTimer Timer { get; } = new();
+    internal LocalCalendar Calendar { get; private set; } = null!;
+    internal string CalendarError { get; private set; } = "";
+    internal bool CalendarPolling => calendarTick?.IsEnabled == true;
     public OverlayWindow Overlay { get; private set; } = null!;
     internal bool IsTrayRegistered => tray?.IsRegistered == true;
     internal (IntPtr Handle, Win32.MonitorInfo Info) TargetMonitor => foreground?.TargetMonitor ?? Win32.SelectMonitor(Settings, Win32.GetForegroundWindow());
@@ -68,6 +75,13 @@ public partial class App : Application
             Audio = new AudioService(Dispatcher);
             Brightness = new BrightnessService(Dispatcher);
             Notifications = new NotificationService(Dispatcher);
+            Downloads = new DownloadService(Dispatcher);
+            Bluetooth = new BluetoothService(Dispatcher);
+            var smokeIndex = Array.IndexOf(e.Args, "--smoke-test");
+            var fixtureIndex = Array.FindIndex(e.Args, argument => argument is "--smoke-test" or "--performance-test");
+            var calendarPath = fixtureIndex >= 0 ? Path.Combine(fixtureIndex + 1 < e.Args.Length ? e.Args[fixtureIndex + 1] : Path.Combine(AppContext.BaseDirectory, "smoke-test"), $"calendar-{Guid.NewGuid():N}.json")
+                : Path.Combine(SettingsStore.DataDirectory, "agenda.json");
+            Calendar = new LocalCalendar(calendarPath);
             Overlay = new OverlayWindow(this);
             MainWindow = Overlay;
             State.Visibility = Settings.Visibility;
@@ -82,6 +96,8 @@ public partial class App : Application
             expiryTimer.Stop();
             countdownTick = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, (_, _) => Timer.Tick(), Dispatcher);
             countdownTick.Stop();
+            calendarTick = new DispatcherTimer(DispatcherPriority.Background, Dispatcher) { Interval = TimeSpan.FromSeconds(15) };
+            calendarTick.Tick += (_, _) => RefreshCalendar();
             Timer.Changed += OnTimer;
             Timer.Completed += () => Publish("timer", "\uE916", $"{Timer.Label} complete", "Open to continue", 90, 6);
             Media.Changed += OnMedia;
@@ -94,12 +110,19 @@ public partial class App : Application
                     Publish("brightness", "\uE706", "Brightness", $"{brightness.Percent}%", 50, 2, brightness.Percent);
             };
             Notifications.Changed += OnNotification;
+            Downloads.Changed += () => Overlay.UpdateDownloads();
+            Bluetooth.Changed += () => Overlay.UpdateBluetooth();
+            Downloads.Completed += files =>
+            {
+                if (Settings.Downloads) Publish("download", "\uE896", "File ready", files.Length == 1 ? files[0].Name : $"{files.Length} files · Open Downloads", 65, 5);
+            };
             Overlay.Show();
             Overlay.ApplySettings();
             Overlay.UpdateMedia(null);
             Overlay.UpdateAudio(Audio.Current);
             Overlay.UpdateTimer();
             Brightness.SetEnabled(Settings.Brightness);
+            Bluetooth.SetEnabled(Settings.Bluetooth);
             if (!e.Args.Contains("--smoke-test")) Notifications.SetEnabled(Settings.Notifications);
             Media.SetEnabled(Settings.Media);
             CreateTray();
@@ -114,6 +137,8 @@ public partial class App : Application
             };
             foreground.DisplayChanged += Overlay.Reposition;
             foreground.Check();
+            if (smokeIndex < 0) Downloads.Configure(Settings.Downloads, Settings.DownloadsFolder);
+            RefreshCalendar();
             await Media.StartAsync();
             if (exiting) return;
             if (e.Args.Contains("--smoke-test"))
@@ -121,6 +146,26 @@ public partial class App : Application
                 var index = Array.IndexOf(e.Args, "--smoke-test");
                 var output = index + 1 < e.Args.Length ? e.Args[index + 1] : Path.Combine(AppContext.BaseDirectory, "smoke-test");
                 await SmokeTest.RunAsync(this, output);
+                Shutdown();
+            }
+            else if (e.Args.Contains("--performance-test"))
+            {
+                var index = Array.IndexOf(e.Args, "--performance-test");
+                var output = index + 1 < e.Args.Length ? e.Args[index + 1] : Path.Combine(AppContext.BaseDirectory, "performance-test");
+                await PerformanceValidation.RunAsync(this, output); Shutdown();
+            }
+            else if (e.Args.Contains("--bluetooth-read-test"))
+            {
+                var index = Array.IndexOf(e.Args, "--bluetooth-read-test");
+                var output = index + 1 < e.Args.Length ? e.Args[index + 1] : Path.Combine(AppContext.BaseDirectory, "bluetooth-test");
+                Shutdown(await BluetoothValidation.ReadLiveAsync(output) ? 0 : 1);
+            }
+            else if (e.Args.Contains("--notification-test"))
+            {
+                var index = Array.IndexOf(e.Args, "--notification-test");
+                if (index + 2 >= e.Args.Length) throw new ArgumentException("--notification-test needs an output directory and the test sender script path.");
+                OpenSettings();
+                await NotificationValidation.RunLiveAsync(this, e.Args[index + 1], e.Args[index + 2]);
                 Shutdown();
             }
             else if (e.Args.Contains("--settings")) OpenSettings();
@@ -197,6 +242,10 @@ public partial class App : Application
         if (!settings.Brightness) State.Remove("brightness");
         Brightness.SetEnabled(settings.Brightness);
         Notifications.SetEnabled(settings.Notifications);
+        State.Remove("download");
+        Downloads.Configure(settings.Downloads, settings.DownloadsFolder);
+        Bluetooth.SetEnabled(settings.Bluetooth);
+        RefreshCalendar();
         if (!settings.Notifications || !State.AcceptsEvent(80)) DismissNotification();
         ApplySystemColors();
         State.Refresh(); Overlay.ApplySettings(); Overlay.UpdateMedia(settings.Media ? Media.Current : null);
@@ -213,6 +262,60 @@ public partial class App : Application
     internal void DismissNotification()
     {
         LatestNotification = null; State.Remove("notification"); Overlay.UpdateNotification();
+    }
+    internal void RefreshCalendar()
+    {
+        State.Remove("calendar");
+        if (Settings.Calendar && !Calendar.LoadFailed)
+        {
+            try
+            {
+                var due = Calendar.TakeDueReminders();
+                CalendarError = "";
+                if (due.Length > 0)
+                {
+                    var entry = due[0];
+                    Publish("calendar", "\uE787", entry.Title, $"{entry.StartsAt.ToLocalTime():HH:mm}" + (due.Length > 1 ? $" · +{due.Length - 1} more in Agenda" : " · Starting soon"), 80, 8);
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                if (CalendarError.Length == 0) SettingsStore.Log("calendar.reminder", ex);
+                CalendarError = "Could not save reminder status. Check folder permissions; WinNotch will retry.";
+            }
+        }
+        if (Settings.Calendar && !Calendar.LoadFailed && Calendar.Next != null) calendarTick?.Start(); else calendarTick?.Stop();
+        Overlay.UpdateCalendar();
+    }
+    public void OpenAgenda()
+    {
+        if (exiting) return;
+        State.Collapse();
+        if (agendaWindow == null) { agendaWindow = new AgendaWindow(this); agendaWindow.Closed += (_, _) => agendaWindow = null; }
+        agendaWindow.Show(); agendaWindow.WindowState = WindowState.Normal; agendaWindow.Activate();
+    }
+    internal void OpenDownloadsFolder()
+    {
+        try
+        {
+            var info = new ProcessStartInfo(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe")) { UseShellExecute = false };
+            info.ArgumentList.Add(Downloads.Folder);
+            using var process = Process.Start(info);
+        }
+        catch (Exception ex)
+        {
+            SettingsStore.Log("downloads.openFolder", ex);
+            MessageBox.Show("Could not open the folder. Check the Downloads folder in Settings.", "WinNotch", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+    }
+    internal void OpenBluetoothSettings()
+    {
+        try { using var process = Process.Start(new ProcessStartInfo("ms-settings:bluetooth") { UseShellExecute = true }); }
+        catch (Exception ex)
+        {
+            SettingsStore.Log("bluetooth.openSettings", ex);
+            MessageBox.Show("Open Windows Settings > Bluetooth & devices.", "WinNotch", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
     }
     public void Restart()
     {
@@ -268,8 +371,8 @@ public partial class App : Application
         exiting = true;
         SystemParameters.StaticPropertyChanged -= OnSystemPreference;
         signalRegistration?.Unregister(null); showSettingsSignal?.Dispose();
-        expiryTimer?.Stop(); countdownTick?.Stop(); foreground?.Dispose(); Media?.Dispose(); Battery?.Dispose(); Audio?.Dispose(); Brightness?.Dispose(); Notifications?.Dispose();
-        tray?.Dispose();
+        expiryTimer?.Stop(); countdownTick?.Stop(); calendarTick?.Stop(); foreground?.Dispose(); Media?.Dispose(); Battery?.Dispose(); Audio?.Dispose(); Brightness?.Dispose(); Notifications?.Dispose(); Downloads?.Dispose();
+        Bluetooth?.Dispose(); tray?.Dispose();
         mutex?.Dispose(); base.OnExit(e);
     }
 }

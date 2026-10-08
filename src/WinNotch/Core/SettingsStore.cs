@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.Win32;
 
 namespace WinNotch.Core;
@@ -14,6 +15,10 @@ public sealed record NotchSettings
     public bool Notifications { get; init; }
     public bool Brightness { get; init; } = true;
     public bool Clock { get; init; }
+    public bool Calendar { get; init; } = true;
+    public bool Downloads { get; init; } = true;
+    public bool Bluetooth { get; init; } = true;
+    public string DownloadsFolder { get; init; } = "";
     public AccentTheme Theme { get; init; } = AccentTheme.Leaf;
     public bool TrueBlack { get; init; }
     public double AnimationSpeed { get; init; } = 1;
@@ -39,13 +44,14 @@ public static class SettingsStore
     {
         try
         {
-            var settings = JsonSerializer.Deserialize<NotchSettings>(File.ReadAllText(FilePath)) ?? new();
+            var settings = JsonSerializer.Deserialize(File.ReadAllText(FilePath), SettingsJsonContext.Default.NotchSettings) ?? new();
             return settings with { Scale = settings.Scale is >= 0.85 and <= 1.2 ? settings.Scale : 1,
                 Visibility = Enum.IsDefined(settings.Visibility) ? settings.Visibility : VisibilityMode.SmartHide,
                 Display = Enum.IsDefined(settings.Display) ? settings.Display : DisplayMode.Primary,
                 Theme = Enum.IsDefined(settings.Theme) ? settings.Theme : AccentTheme.Leaf,
                 AnimationSpeed = settings.AnimationSpeed is >= 0.5 and <= 2 ? settings.AnimationSpeed : 1,
                 Fullscreen = settings.Fullscreen.HasValue && Enum.IsDefined(settings.Fullscreen.Value) ? settings.Fullscreen : null,
+                DownloadsFolder = settings.DownloadsFolder ?? "",
                 SelectedDisplay = settings.SelectedDisplay ?? "", ExcludedApps = DesktopPolicy.NormalizeApps(settings.ExcludedApps) };
         }
         catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException) { return new(); }
@@ -54,7 +60,7 @@ public static class SettingsStore
     public static void Save(NotchSettings settings)
     {
         Directory.CreateDirectory(DataDirectory);
-        File.WriteAllText(FilePath + ".tmp", JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true }));
+        File.WriteAllText(FilePath + ".tmp", JsonSerializer.Serialize(settings, SettingsJsonContext.Default.NotchSettings));
         File.Move(FilePath + ".tmp", FilePath, true);
     }
 
@@ -85,3 +91,7 @@ public static class SettingsStore
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
     }
 }
+
+[JsonSourceGenerationOptions(WriteIndented = true)]
+[JsonSerializable(typeof(NotchSettings))]
+internal partial class SettingsJsonContext : JsonSerializerContext { }

@@ -14,6 +14,7 @@ public partial class SettingsWindow : Window
 {
     private readonly App host;
     private readonly DispatcherTimer statusTimer;
+    private string downloadsFolder = "";
     public SettingsWindow(App host)
     {
         this.host = host;
@@ -25,6 +26,9 @@ public partial class SettingsWindow : Window
         AnimationCheck.IsChecked = s.Animations; MediaCheck.IsChecked = s.Media;
         BatteryCheck.IsChecked = s.Battery; VolumeCheck.IsChecked = s.Volume;
         TimerCheck.IsChecked = s.Timer;
+        CalendarCheck.IsChecked = s.Calendar;
+        BluetoothCheck.IsChecked = s.Bluetooth;
+        DownloadsCheck.IsChecked = s.Downloads; downloadsFolder = s.DownloadsFolder; UpdateDownloadsFolder();
         NotificationsCheck.IsChecked = s.Notifications; BrightnessCheck.IsChecked = s.Brightness;
         ClockCheck.IsChecked = s.Clock; TrueBlackCheck.IsChecked = s.TrueBlack;
         ThemeSelect.SelectedIndex = (int)s.Theme;
@@ -47,6 +51,8 @@ public partial class SettingsWindow : Window
             (audio.Available ? $"   /   {(audio.Muted ? "Audio muted" : $"Volume {audio.Percent}%")}" : "   /   No audio output");
         MediaStatus.Text = host.Settings.Media ? host.Media.Status : "Media module is turned off.";
         NotificationStatus.Text = host.Notifications.Status;
+        DownloadsSettingsStatus.Text = host.Downloads.Status;
+        BluetoothSettingsStatus.Text = host.Bluetooth.Status;
     }
 
     private void OnSave(object sender, RoutedEventArgs e)
@@ -66,6 +72,9 @@ public partial class SettingsWindow : Window
             Media = MediaCheck.IsChecked == true, Battery = BatteryCheck.IsChecked == true, Volume = VolumeCheck.IsChecked == true, Timer = TimerCheck.IsChecked == true,
             Notifications = NotificationsCheck.IsChecked == true, Brightness = BrightnessCheck.IsChecked == true,
             Clock = ClockCheck.IsChecked == true, TrueBlack = TrueBlackCheck.IsChecked == true,
+            Calendar = CalendarCheck.IsChecked == true,
+            Bluetooth = BluetoothCheck.IsChecked == true,
+            Downloads = DownloadsCheck.IsChecked == true, DownloadsFolder = downloadsFolder,
             Theme = (AccentTheme)Math.Max(0, ThemeSelect.SelectedIndex),
             AnimationSpeed = AnimationSpeedSelect.SelectedIndex switch { 0 => 0.7, 2 => 1.4, _ => 1 },
             Display = display == "@follow" ? DisplayMode.FollowActive : display == "@primary" ? DisplayMode.Primary : DisplayMode.Selected,
@@ -82,6 +91,15 @@ public partial class SettingsWindow : Window
         catch (Exception ex) { SettingsStore.Log("settings.save", ex); SaveStatus.Text = "Couldn't save. Check folder permissions."; }
     }
     private void OnPlayer(object sender, RoutedEventArgs e) { host.Overlay.Expand(false); }
+    private void OnAgenda(object sender, RoutedEventArgs e) => host.OpenAgenda();
+    private void OnBluetoothSettings(object sender, RoutedEventArgs e) => host.OpenBluetoothSettings();
+    private void UpdateDownloadsFolder() => DownloadsFolderText.Text = downloadsFolder.Length == 0 ? $"Windows Downloads · {Win32.DownloadsFolder()}" : downloadsFolder;
+    private void OnChooseDownloads(object sender, RoutedEventArgs e)
+    {
+        var picker = new OpenFolderDialog { Title = "Choose the downloads folder", Multiselect = false };
+        if (picker.ShowDialog(this) == true) { downloadsFolder = picker.FolderName; UpdateDownloadsFolder(); }
+    }
+    private void OnDefaultDownloads(object sender, RoutedEventArgs e) { downloadsFolder = ""; UpdateDownloadsFolder(); }
     private async void OnNotificationAccess(object sender, RoutedEventArgs e)
     {
         NotificationAccessButton.IsEnabled = false;

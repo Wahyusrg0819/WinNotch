@@ -9,7 +9,9 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets/WinNotch.ico</ApplicationIcon>
     <AssemblyName>WinNotch</AssemblyName>
-    <Version>0.2.2</Version>
+    <Version>0.2.9</Version>
+    <!-- This background utility uses less memory/CPU with one optimized JIT tier. -->
+    <TieredCompilation>false</TieredCompilation>
     <Description>A quiet place for what's playing.</Description>
     <Platforms>x64</Platforms>
     <PlatformTarget>x64</PlatformTarget>

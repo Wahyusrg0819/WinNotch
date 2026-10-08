@@ -5,3 +5,4 @@ dist/
 artifacts/
 .vs/
 *.user
+/prd.md

@@ -11,6 +11,14 @@ namespace WinNotch.Native;
 internal static class Win32
 {
     internal const int GwlExStyle = -20, ToolWindow = 0x80, NoActivate = 0x08000000;
+    [DllImport("shell32.dll")] private static extern int SHGetKnownFolderPath(in Guid id, uint flags, IntPtr token, out IntPtr path);
+    internal static string DownloadsFolder()
+    {
+        var id = new Guid("374DE290-123F-4565-9164-39C4925E467B");
+        var result = SHGetKnownFolderPath(in id, 0x4000, IntPtr.Zero, out var path);
+        try { return result >= 0 ? Marshal.PtrToStringUni(path) ?? "" : ""; }
+        finally { if (path != IntPtr.Zero) Marshal.FreeCoTaskMem(path); }
+    }
     [StructLayout(LayoutKind.Sequential)] internal struct Point { public int X, Y; public Point(int x, int y) { X = x; Y = y; } }
     [StructLayout(LayoutKind.Sequential)] internal struct Rect { public int Left, Top, Right, Bottom; public int Width => Right - Left; public int Height => Bottom - Top; public PixelBounds Bounds => new(Left, Top, Width, Height); }
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)] internal struct MonitorInfo
@@ -21,7 +29,7 @@ internal static class Win32
     internal delegate bool MonitorCallback(IntPtr monitor, IntPtr dc, ref Rect bounds, IntPtr data);
     [DllImport("user32.dll")] private static extern bool EnumDisplayMonitors(IntPtr dc, IntPtr clip, MonitorCallback callback, IntPtr data);
     [DllImport("kernel32.dll")] private static extern IntPtr OpenProcess(uint access, bool inherit, uint processId);
-    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] private static extern bool QueryFullProcessImageName(IntPtr process, uint flags, StringBuilder name, ref uint size);
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)] private static extern bool QueryFullProcessImageName(IntPtr process, uint flags, StringBuilder name, ref uint size);
     [DllImport("kernel32.dll")] private static extern bool CloseHandle(IntPtr handle);
     internal delegate void WinEventDelegate(IntPtr hook, uint eventType, IntPtr hwnd, int objectId, int childId, uint threadId, uint time);
     [DllImport("user32.dll")] internal static extern IntPtr GetForegroundWindow();
@@ -87,8 +95,15 @@ internal static class Win32
         if (process == IntPtr.Zero) return "";
         try
         {
-            var path = new StringBuilder(32768); uint length = (uint)path.Capacity;
-            return QueryFullProcessImageName(process, 0, path, ref length) ? Path.GetFileName(path.ToString()).ToLowerInvariant() : "";
+            // Most executable paths fit here; avoid a 64 KiB allocation on every foreground check.
+            var path = new StringBuilder(512); uint length = (uint)path.Capacity;
+            if (!QueryFullProcessImageName(process, 0, path, ref length))
+            {
+                if (Marshal.GetLastWin32Error() != 122) return ""; // ERROR_INSUFFICIENT_BUFFER
+                path.EnsureCapacity(32768); length = (uint)path.Capacity;
+                if (!QueryFullProcessImageName(process, 0, path, ref length)) return "";
+            }
+            return Path.GetFileName(path.ToString()).ToLowerInvariant();
         }
         finally { CloseHandle(process); }
     }

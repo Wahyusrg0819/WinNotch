@@ -154,4 +154,62 @@ var reused = new NotificationStamp(1, time);
 Check(notifications.Update(new[] { reused }, time).SequenceEqual(new[] { reused }), "Notification identifier reuse is distinguished by creation time");
 notifications.Reset();
 Check(notifications.Update(new[] { reused }, time).Length == 0, "Re-enabling starts a new baseline");
+
+var calendarFolder = Path.Combine(Path.GetTempPath(), "WinNotch-calendar-check-" + Guid.NewGuid().ToString("N"));
+var calendarPath = Path.Combine(calendarFolder, "agenda.json");
+try
+{
+    var calendarNow = new DateTimeOffset(2026, 10, 7, 10, 0, 0, TimeSpan.FromHours(7));
+    var calendar = new LocalCalendar(calendarPath, () => calendarNow);
+    Check(!calendar.LoadFailed && calendar.Next == null, "Missing agenda starts empty");
+    var later = calendar.Save(null, "Later", calendarNow.AddHours(2), true);
+    var early = calendar.Save(null, "  First  ", calendarNow.AddHours(1).ToOffset(TimeSpan.FromHours(-4)), true);
+    Check(calendar.Next?.Id == early.Id && calendar.Next.Title == "First", "Agenda sorts actual instants across offsets and trims titles");
+    var loaded = new LocalCalendar(calendarPath, () => calendarNow);
+    Check(loaded.Entries.SequenceEqual(calendar.Entries), "Agenda and reminder preferences survive a restart");
+    foreach (var title in new[] { "", new string('x', 121), "Two\nlines" })
+    {
+        var rejected = false;
+        try { calendar.Save(null, title, calendarNow.AddHours(1), true); } catch (ArgumentException) { rejected = true; }
+        Check(rejected && calendar.Entries.Count == 2, "Invalid title cannot change the agenda");
+    }
+    var pastRejected = false;
+    try { calendar.Save(null, "Past", calendarNow, true); } catch (ArgumentException) { pastRejected = true; }
+    Check(pastRejected, "Past or current event time is rejected");
+    Check(calendar.TakeDueReminders().Length == 0, "Reminders do not arrive early");
+    calendarNow = calendarNow.AddMinutes(55);
+    Check(calendar.TakeDueReminders().Single().Id == early.Id, "Reminder arrives exactly at the five-minute boundary");
+    Check(calendar.TakeDueReminders().Length == 0 && new LocalCalendar(calendarPath, () => calendarNow).TakeDueReminders().Length == 0, "Polling and restart do not repeat delivered reminders");
+    calendar.Save(early.Id, "Renamed", early.StartsAt, true);
+    Check(calendar.TakeDueReminders().Length == 0, "Title edits do not replay a reminder");
+    calendar.Save(early.Id, "Rescheduled", calendarNow.AddMinutes(4), true);
+    Check(calendar.TakeDueReminders().Single().Id == early.Id && calendar.Entries.Count == 2, "Rescheduling rearms one reminder without duplicating the event");
+    calendarNow = calendarNow.AddHours(3);
+    Check(calendar.TakeDueReminders().Length == 0 && calendar.Next == null && calendar.Entries.Count == 2, "Resume after the event skips stale reminders and preserves past entries");
+    var quiet = calendar.Save(null, "No reminder", calendarNow.AddMinutes(1), false);
+    Check(calendar.TakeDueReminders().Length == 0, "Per-event reminder opt-out is respected");
+    var together1 = calendar.Save(null, "Together one", calendarNow.AddMinutes(2), true);
+    var together2 = calendar.Save(null, "Together two", calendarNow.AddMinutes(2), true);
+    Check(calendar.TakeDueReminders().Length == 2, "Simultaneous reminders are all consumed in one durable update");
+    calendarNow = calendarNow.AddMinutes(-10);
+    Check(calendar.TakeDueReminders().Length == 0, "Moving the clock backwards does not send early reminders");
+    calendarNow = calendarNow.AddMinutes(10);
+    Check(calendar.TakeDueReminders().Length == 0, "Moving the system clock backwards does not replay consumed reminders");
+    calendar.Delete(quiet.Id);
+    Check(new LocalCalendar(calendarPath, () => calendarNow).Entries.All(entry => entry.Id != quiet.Id), "Delete persists across restart");
+    Directory.CreateDirectory(calendarPath + ".tmp");
+    var beforeFailure = File.ReadAllText(calendarPath);
+    var failed = false;
+    try { calendar.Save(later.Id, "Must not overwrite", calendarNow.AddHours(2), true); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { failed = true; }
+    Check(failed && File.ReadAllText(calendarPath) == beforeFailure && calendar.Entries.Single(entry => entry.Id == later.Id).Title == "Later", "Failed save preserves disk and in-memory agenda");
+    Directory.Delete(calendarPath + ".tmp");
+    File.WriteAllText(calendarPath, "{broken");
+    var broken = new LocalCalendar(calendarPath, () => calendarNow);
+    failed = false;
+    try { broken.Delete(later.Id); } catch (IOException) { failed = true; }
+    Check(broken.LoadFailed && failed && File.ReadAllText(calendarPath) == "{broken", "Unreadable agenda is preserved instead of silently overwritten");
+    File.WriteAllText(calendarPath, "[null]");
+    Check(new LocalCalendar(calendarPath).LoadFailed, "Malformed entry is rejected safely");
+}
+finally { if (Directory.Exists(calendarFolder)) Directory.Delete(calendarFolder, true); }
 Console.WriteLine($"{count} total checks passed.");

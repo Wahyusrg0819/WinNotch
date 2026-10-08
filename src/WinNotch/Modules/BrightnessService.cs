@@ -12,7 +12,7 @@ public sealed record BrightnessSnapshot(bool Available, int Percent);
 public sealed class BrightnessService : IDisposable
 {
     private readonly DispatcherTimer poll;
-    private bool enabled, busy, disposed;
+    private bool enabled, busy, disposed, sampled;
     private int generation;
     private int? pending;
     public BrightnessSnapshot Current { get; private set; } = new(false, 0);
@@ -27,7 +27,7 @@ public sealed class BrightnessService : IDisposable
     public void SetEnabled(bool value)
     {
         if (disposed || enabled == value) return;
-        enabled = value; generation++; pending = null; poll.Stop();
+        enabled = value; generation++; pending = null; sampled = false; poll.Stop();
         if (value) { poll.Start(); _ = RefreshAsync(); }
         else { Current = new(false, 0); Changed?.Invoke(Current, false); }
     }
@@ -50,9 +50,12 @@ public sealed class BrightnessService : IDisposable
             var result = await Task.Run(() => ReadOrSet(requested));
             if (disposed || version != generation) return;
             var external = !requested.HasValue && Current.Available && result.Available && Current.Percent != result.Percent;
+            // Always acknowledge a write so the slider snaps back to the supported hardware step.
+            var changed = !sampled || requested.HasValue || result != Current;
+            sampled = true;
             Current = result;
             poll.Interval = TimeSpan.FromSeconds(result.Available ? 2 : 30);
-            Changed?.Invoke(Current, external);
+            if (changed) Changed?.Invoke(Current, external);
         }
         catch (Exception ex)
         {

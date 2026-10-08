@@ -15,7 +15,7 @@
           <TextBlock Text="LOCAL BY DESIGN" FontSize="9" FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}" Margin="12,28,0,8"/>
           <TextBlock Text="No account.&#x0a;No cloud.&#x0a;Just your desktop." FontSize="12" LineHeight="22" Foreground="{DynamicResource MutedBrush}" Margin="12,0"/>
         </StackPanel>
-        <TextBlock Grid.Row="2" Text="VERSION 0.2.2  /  PREVIEW" FontSize="9" Foreground="{DynamicResource MutedBrush}"/>
+        <TextBlock Grid.Row="2" Text="VERSION 0.2.9  /  PREVIEW" FontSize="9" Foreground="{DynamicResource MutedBrush}"/>
       </Grid>
     </Border>
     <Grid Grid.Column="1" Margin="30,27,30,20">
@@ -69,6 +69,19 @@
           <CheckBox x:Name="BrightnessCheck" Content="Internal display brightness slider &amp; indicator"/>
           <CheckBox x:Name="ClockCheck" Content="Show local time when idle"/>
           <TextBlock Text="The clock follows your visibility setting. Media and timers take priority." FontSize="11" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+          <CheckBox x:Name="CalendarCheck" Content="Local calendar &amp; reminders"/>
+          <Button Content="Manage agenda" Click="OnAgenda" HorizontalAlignment="Left" FontSize="11" Padding="10,6" Margin="0,0,0,8"/>
+          <TextBlock Text="Downloads" FontSize="16" FontWeight="SemiBold" Margin="0,16,0,6"/>
+          <CheckBox x:Name="DownloadsCheck" Content="Watch the downloads folder"/>
+          <TextBox x:Name="DownloadsFolderText" IsReadOnly="True" TextWrapping="Wrap" Padding="8,6" Background="{DynamicResource CardBrush}" Foreground="{DynamicResource TextBrush}" BorderBrush="{DynamicResource LineBrush}" AutomationProperties.Name="Downloads folder"/>
+          <WrapPanel Margin="0,8,0,0"><Button Content="Choose folder…" Click="OnChooseDownloads" FontSize="11" Padding="10,6"/><Button Content="Use Windows default" Click="OnDefaultDownloads" FontSize="11" Padding="10,6" Margin="8,0,0,0"/></WrapPanel>
+          <TextBlock Text="Tracks .crdownload and .part files directly in this folder. Temporary files may be paused or interrupted; size is not a progress percentage. A rename to a final filename is shown as ready. Files are never opened or changed automatically." FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" Margin="0,8,0,0"/>
+          <TextBlock x:Name="DownloadsSettingsStatus" TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,8,0,0"/>
+          <TextBlock Text="Bluetooth" FontSize="16" FontWeight="SemiBold" Margin="0,16,0,6"/>
+          <CheckBox x:Name="BluetoothCheck" Content="Bluetooth devices &amp; on/off control"/>
+          <TextBlock Text="Shows paired devices while the Bluetooth panel is open. Battery levels depend on the device and Windows driver. Turning off this module leaves Bluetooth unchanged." FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,8"/>
+          <Button Content="Windows Bluetooth settings" Click="OnBluetoothSettings" HorizontalAlignment="Left" FontSize="11" Padding="10,6"/>
+          <TextBlock x:Name="BluetoothSettingsStatus" TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,8,0,0"/>
           <TextBlock Text="Notification previews" FontSize="16" FontWeight="SemiBold" Margin="0,16,0,6"/>
           <CheckBox x:Name="NotificationsCheck" Content="Preview new Windows notifications"/>
           <TextBlock Text="Content is processed locally, kept only in memory, and never logged. Dismissing a preview keeps the original in Windows." FontSize="11" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,0,0,8"/>

@@ -5,4 +5,5 @@
   <ItemGroup><Compile Include="../../src/WinNotch/Core/CountdownTimer.cs" Link="CountdownTimer.cs"/></ItemGroup>
   <ItemGroup><Compile Include="../../src/WinNotch/Core/DesktopPolicy.cs" Link="DesktopPolicy.cs"/></ItemGroup>
   <ItemGroup><Compile Include="../../src/WinNotch/Core/NotificationTracker.cs" Link="NotificationTracker.cs"/></ItemGroup>
+  <ItemGroup><Compile Include="../../src/WinNotch/Core/LocalCalendar.cs" Link="LocalCalendar.cs"/></ItemGroup>
 </Project>
