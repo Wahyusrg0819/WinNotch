@@ -131,9 +131,6 @@ public partial class OverlayWindow : Window
         Topmost = host.Settings.AlwaysOnTop;
         Notch.LayoutTransform = new ScaleTransform(host.Settings.Scale, host.Settings.Scale);
         Notch.Margin = new Thickness(0, host.Settings.Floating ? 8 : 0, 0, 0);
-        Notch.Background = SystemParameters.HighContrast ? SystemColors.WindowBrush : host.Settings.TrueBlack ? Brushes.Black : new SolidColorBrush(Color.FromRgb(5, 5, 5));
-        Notch.BorderBrush = SystemParameters.HighContrast ? SystemColors.WindowTextBrush : Brushes.Transparent;
-        Notch.BorderThickness = new Thickness(SystemParameters.HighContrast ? 1 : 0);
         Reposition();
         timerItem.IsEnabled = host.Settings.Timer;
         ExpandedContent?.ApplySettings();
@@ -148,6 +145,13 @@ public partial class OverlayWindow : Window
         if (shownState == NotchState.Hidden) { timelineTimer.Stop(); clockTimer.Stop(); host.Bluetooth.SetPanelVisible(false); SetPassive(true); Hide(); return; }
         if (!IsVisible) Show();
         var expanded = shownState == NotchState.Expanded;
+        var glass = host.Settings.Theme == AccentTheme.ObsidianGlass && !SystemParameters.HighContrast;
+        // Keep the attached compact notch dark; the expanded or floating surface carries the glass tint.
+        Notch.Background = SystemParameters.HighContrast ? SystemColors.WindowBrush
+            : glass && (expanded || host.Settings.Floating) ? (Brush)host.Resources["GlassSurfaceBrush"]
+            : host.Settings.TrueBlack || glass ? Brushes.Black : (Brush)host.Resources["NotchBaseBrush"];
+        Notch.BorderBrush = SystemParameters.HighContrast ? SystemColors.WindowTextBrush : glass ? (Brush)host.Resources["GlassEdgeBrush"] : Brushes.Transparent;
+        Notch.BorderThickness = SystemParameters.HighContrast ? new Thickness(1) : glass ? new Thickness(1, host.Settings.Floating ? 1 : 0, 1, 1) : new Thickness(0);
         if (expanded) EnsureExpandedContent();
         SetPassive(!expanded);
         if (previous == NotchState.Expanded && !expanded && Win32.GetForegroundWindow() == handle && returnFocus != IntPtr.Zero)

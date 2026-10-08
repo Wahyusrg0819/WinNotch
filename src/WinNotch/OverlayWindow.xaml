@@ -16,7 +16,7 @@
         <Grid x:Name="CompactContent" Visibility="Collapsed" Margin="14,6">
           <Grid x:Name="CompactMedia">
           <Grid.ColumnDefinitions><ColumnDefinition Width="28"/><ColumnDefinition Width="*"/><ColumnDefinition Width="28"/></Grid.ColumnDefinitions>
-          <Border CornerRadius="7" Background="#202520" Width="26" Height="26" ClipToBounds="True">
+          <Border CornerRadius="7" Background="{DynamicResource ArtworkSurfaceBrush}" Width="26" Height="26" ClipToBounds="True">
             <Grid><TextBlock Text="&#xE8D6;" FontFamily="Segoe Fluent Icons" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/><Image x:Name="CompactArt" Stretch="UniformToFill"/></Grid>
           </Border>
           <TextBlock x:Name="CompactTitle" Grid.Column="1" FontSize="12" VerticalAlignment="Center" Margin="10,0,8,0" TextTrimming="CharacterEllipsis"/>

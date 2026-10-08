@@ -63,6 +63,7 @@ internal static class SmokeTest
         checks["controls.followMonitorAvailable"] = monitors.Any(display => display.Handle == app.TargetMonitor.Handle);
         app.ApplySettings(testSettings with { Media = false, Battery = false, Volume = false });
         await CheckControlsAsync(app, checks, output);
+        await CheckAppearanceAsync(app, checks, output);
         await CheckNewModulesAsync(app, checks, output);
         await CheckCalendarAsync(app, checks, output);
         await CheckDownloadsAsync(app, checks, output);
@@ -201,6 +202,71 @@ internal static class SmokeTest
         checks["controls.audioReflectsSystem"] = Find<Slider>("VolumeSlider").Value == app.Audio.Current.Percent && Find<Slider>("VolumeSlider").IsEnabled == app.Audio.Current.Available;
         app.ApplySettings(saved); app.State.Collapse();
     }
+    private static async Task CheckAppearanceAsync(App app, Dictionary<string, object> checks, string output)
+    {
+        var saved = app.Settings;
+        var glass = saved with { Theme = AccentTheme.ObsidianGlass, TrueBlack = true, Floating = false, Animations = false, Timer = true };
+        var roundTrip = JsonSerializer.Deserialize(JsonSerializer.Serialize(glass, SettingsJsonContext.Default.NotchSettings), SettingsJsonContext.Default.NotchSettings);
+        checks["controls.glassPreferencesRoundTrip"] = roundTrip?.Theme == AccentTheme.ObsidianGlass && roundTrip.TrueBlack;
+        checks["controls.legacyThemeCompatibility"] = JsonSerializer.Deserialize("{\"Theme\":2}", SettingsJsonContext.Default.NotchSettings)?.Theme == AccentTheme.Amber;
+        var notch = (Border)app.Overlay.FindName("Notch");
+        SettingsWindow? preferences = null;
+        try
+        {
+            app.ApplySettings(glass); app.State.Collapse();
+            checks["controls.glassAttachedCompactSolid"] = notch.Background is SolidColorBrush compact && compact.Color == (SystemParameters.HighContrast ? SystemColors.WindowColor : Colors.Black);
+            app.Overlay.Expand(true);
+            await Task.Delay(200);
+            checks["controls.glassExpandedSurface"] = SystemParameters.HighContrast ? notch.Background == SystemColors.WindowBrush
+                : notch.Background is LinearGradientBrush surface && surface.IsFrozen && surface.GradientStops.All(stop => stop.Color.A >= 240) && notch.BorderThickness.Bottom == 1;
+            checks["controls.glassButtonSurface"] = SystemParameters.HighContrast ? app.Resources["ButtonBrush"] == SystemColors.WindowBrush
+                : app.Resources["ButtonBrush"] is LinearGradientBrush button && button.IsFrozen;
+            Capture(app.Overlay, Path.Combine(output, "obsidian-attached.png"));
+            app.ApplySettings(glass with { Floating = true });
+            var tabs = (StackPanel)app.Overlay.ExpandedContent!.FindName("ModuleTabs");
+            foreach (Button tab in tabs.Children) tab.Visibility = Visibility.Visible;
+            app.Overlay.UpdateLayout();
+            var gear = (Button)app.Overlay.ExpandedContent.FindName("SettingsButton");
+            checks["controls.glassTabsFit"] = tabs.TranslatePoint(new Point(tabs.ActualWidth, 0), gear).X <= 0;
+            checks["controls.glassFloatingEdge"] = notch.BorderThickness.Top == 1 && notch.Margin.Top == 8 && notch.CornerRadius.TopLeft > 0;
+            Capture(app.Overlay, Path.Combine(output, "obsidian-floating.png"));
+            // Synthetic light/dark desktops make the surface's transparency and contrast reviewable.
+            foreach (var (name, background) in new[] { ("light", Colors.WhiteSmoke), ("dark", Color.FromRgb(18, 22, 28)) })
+            {
+                var drawing = new DrawingVisual();
+                using (var context = drawing.RenderOpen())
+                {
+                    var bounds = new Rect(0, 0, app.Overlay.ActualWidth, app.Overlay.ActualHeight);
+                    context.DrawRectangle(new SolidColorBrush(background), null, bounds);
+                    context.DrawRectangle(new VisualBrush(app.Overlay), null, bounds);
+                }
+                var bitmap = new RenderTargetBitmap((int)app.Overlay.ActualWidth, (int)app.Overlay.ActualHeight, 96, 96, PixelFormats.Pbgra32);
+                bitmap.Render(drawing);
+                var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap));
+                using var stream = File.Create(Path.Combine(output, $"obsidian-{name}.png")); encoder.Save(stream);
+            }
+            app.State.Collapse();
+            checks["controls.glassFloatingCompactSurface"] = SystemParameters.HighContrast ? notch.Background == SystemColors.WindowBrush : notch.Background is LinearGradientBrush;
+            preferences = new SettingsWindow(app);
+            preferences.Show();
+            var selector = (ComboBox)preferences.FindName("ThemeSelect");
+            var black = (CheckBox)preferences.FindName("TrueBlackCheck");
+            checks["controls.glassPreferenceSelection"] = selector.SelectedIndex == (int)AccentTheme.ObsidianGlass && !black.IsEnabled && black.IsChecked == true;
+            selector.SelectedIndex = (int)AccentTheme.Leaf;
+            checks["controls.classicBlackPreferenceRestored"] = black.IsEnabled && black.IsChecked == true;
+            selector.SelectedIndex = (int)AccentTheme.ObsidianGlass;
+            selector.BringIntoView();
+            await Task.Delay(200);
+            Capture(preferences, Path.Combine(output, "obsidian-settings.png"));
+            preferences.Close(); preferences = null;
+            app.ApplySettings(glass with { Theme = AccentTheme.Leaf });
+            app.Overlay.Expand(true);
+            checks["controls.classicAppearanceRestored"] = notch.Background is SolidColorBrush restored && restored.Color == (SystemParameters.HighContrast ? SystemColors.WindowColor : Colors.Black)
+                && app.Resources["ButtonBrush"] is SolidColorBrush && notch.BorderThickness.Bottom == (SystemParameters.HighContrast ? 1 : 0);
+        }
+        finally { preferences?.Close(); app.ApplySettings(saved); app.State.Collapse(); }
+    }
+
     private static async Task CheckNewModulesAsync(App app, Dictionary<string, object> checks, string output)
     {
         var saved = app.Settings;

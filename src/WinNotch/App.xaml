@@ -1,4 +1,4 @@
-<Application x:Class="WinNotch.App" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" ShutdownMode="OnExplicitShutdown">
+<Application x:Class="WinNotch.App" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:po="http://schemas.microsoft.com/winfx/2006/xaml/presentation/options" ShutdownMode="OnExplicitShutdown">
   <Application.Resources>
     <SolidColorBrush x:Key="CanvasBrush" Color="#101112"/>
     <SolidColorBrush x:Key="CardBrush" Color="#191B1D"/>
@@ -6,6 +6,30 @@
     <SolidColorBrush x:Key="TextBrush" Color="#F4F5F5"/>
     <SolidColorBrush x:Key="MutedBrush" Color="#999FA3"/>
     <SolidColorBrush x:Key="AccentBrush" Color="#C8F7AD"/>
+    <SolidColorBrush x:Key="ButtonBrush" Color="#222528"/>
+    <SolidColorBrush x:Key="ButtonLineBrush" Color="Transparent"/>
+    <Thickness x:Key="ButtonBorderThickness">0</Thickness>
+    <SolidColorBrush x:Key="SidebarBrush" Color="#151719"/>
+    <SolidColorBrush x:Key="SelectionBrush" Color="#252C24"/>
+    <SolidColorBrush x:Key="AccentSurfaceBrush" Color="#253320"/>
+    <SolidColorBrush x:Key="ArtworkSurfaceBrush" Color="#202520"/>
+    <SolidColorBrush x:Key="NotchBaseBrush" Color="#050505" po:Freeze="True"/>
+    <LinearGradientBrush x:Key="GlassSurfaceBrush" StartPoint="0,0" EndPoint="0.8,1" po:Freeze="True">
+      <GradientStop Color="#F235404E" Offset="0"/>
+      <GradientStop Color="#F51B222C" Offset="0.32"/>
+      <GradientStop Color="#FA10151D" Offset="0.68"/>
+      <GradientStop Color="#F3232D3A" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="GlassEdgeBrush" StartPoint="0,0" EndPoint="1,1" po:Freeze="True">
+      <GradientStop Color="#A3D8E9FF" Offset="0"/>
+      <GradientStop Color="#304F6078" Offset="0.4"/>
+      <GradientStop Color="#182C3544" Offset="0.7"/>
+      <GradientStop Color="#668BA7C6" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="GlassButtonBrush" StartPoint="0,0" EndPoint="0,1" po:Freeze="True">
+      <GradientStop Color="#E6384555" Offset="0"/>
+      <GradientStop Color="#E6202935" Offset="1"/>
+    </LinearGradientBrush>
     <Style TargetType="Window">
       <Setter Property="FontFamily" Value="Segoe UI Variable, Segoe UI"/>
       <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
@@ -13,13 +37,14 @@
     </Style>
     <Style TargetType="Button">
       <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
-      <Setter Property="Background" Value="#222528"/>
-      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Background" Value="{DynamicResource ButtonBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource ButtonLineBrush}"/>
+      <Setter Property="BorderThickness" Value="{DynamicResource ButtonBorderThickness}"/>
       <Setter Property="Padding" Value="14,9"/>
       <Setter Property="Cursor" Value="Hand"/>
       <Setter Property="Template">
         <Setter.Value><ControlTemplate TargetType="Button">
-          <Border x:Name="Chrome" Background="{TemplateBinding Background}" CornerRadius="10" Padding="{TemplateBinding Padding}">
+          <Border x:Name="Chrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="10" Padding="{TemplateBinding Padding}">
             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
           </Border>
           <ControlTemplate.Triggers>

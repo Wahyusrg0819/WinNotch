@@ -35,6 +35,8 @@ Built with **C#, .NET 10, WPF, and native Windows APIs**. No browser engine, acc
 > [!NOTE]
 > **v0.2.9 is a functional preview.** Each expanded module now loads when first selected and keeps its controls for later visits. Selecting an already active panel avoids repeated initialization. No account or additional dependency is needed. The ≤120 MB memory and <100 ms panel-response targets remain open. See [validation results and remaining limitations](VALIDATION.md).
 
+**New in the v0.2.10 source/local build:** choose **Settings → Appearance & behavior → Theme → Obsidian Glass**, then **Save changes**. It adds a smoky glass surface, silver edges, and an ice-blue accent. The attached compact notch stays dark; expanded and floating views show the tinted surface. This theme is not included in the published v0.2.9 download yet.
+
 ## See it in action
 
 | Music at a glance | A brief system moment |
@@ -59,6 +61,10 @@ These three captures are from the **v0.2.9 smoke test with synthetic events, fil
 </p>
 
 Choose an attached or floating shape, one of three sizes, a Leaf/Ice/Amber accent, near-black/true-black background, animation speed, and the visibility mode that fits your desktop. Modules can be enabled individually. Windows high contrast and reduced motion take precedence.
+
+Obsidian Glass uses static gradients and slight transparency, with no backdrop capture, live blur, refraction shader, or continuous effect animation. The True black setting is retained for Leaf/Ice/Amber and disabled while Glass is selected. Windows high contrast replaces the glass with solid system colors. Additional RAM/CPU cost has not been measured separately.
+
+<img src="docs/images/obsidian-glass.png" alt="Obsidian Glass floating timer panel on a synthetic dark desktop, from the v0.2.10 local smoke test" width="500">
 
 </details>
 

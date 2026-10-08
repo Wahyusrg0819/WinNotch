@@ -1,4 +1,17 @@
-# WinNotch v0.2.9 preview validation
+# WinNotch v0.2.10 local preview — Obsidian Glass
+
+Validated on 8 October 2026 on Windows 11 x64, one laptop display at 125% DPI. The published GitHub download remains v0.2.9; this theme is in the current source and local portable build.
+
+- **240 checks passed:** 105 core and 135 required UI/native smoke checks, including 11 appearance checks. Coverage includes generated-settings serialization, compatibility with existing theme values, attached/floating surfaces, all seven tabs fitting beside Settings, returning to the classic appearance, and preserving the True black preference while its control is disabled for Glass.
+- Release publish succeeded. The final portable smoke run exited with code 0. Light/dark synthetic desktop captures, the floating/attached surfaces, and the Settings selection were inspected visually. Smoke tests did not save preferences; settings and agenda file hashes remained unchanged.
+- The surface and button gradients are shared frozen WPF brushes. No dependency, polling loop, backdrop capture, live blur, refraction shader, or continuous effect animation was added. Glass uses an ice-blue accent and static silver edges; the attached compact notch stays solid black. High contrast takes precedence in the implementation.
+- Additional RAM/CPU cost was not measured separately. Windows high-contrast/reduced-motion transitions, other displays/scales, extended sessions, and physical device changes were not repeated for this theme. The existing performance targets remain open. MSIX version metadata was updated; a new MSIX was not built or installed.
+
+Evidence: `artifacts/obsidian-glass/publish-final.txt`, `smoke-final/smoke-results.json`, `smoke-final/obsidian-{light,dark,attached,floating,settings}.png`, and `user-data-before.json`. The smoke run uses synthetic module fixtures.
+
+---
+
+# WinNotch v0.2.9 historical preview validation
 
 Validated on 8 October 2026, Windows 11 x64, one physical laptop display at 125% DPI.
 

@@ -358,13 +358,21 @@ public partial class App : Application
     private void ApplySystemColors()
     {
         var contrast = SystemParameters.HighContrast;
+        var glass = Settings.Theme == AccentTheme.ObsidianGlass;
         System.Windows.Media.Brush Brush(string hex) => (System.Windows.Media.Brush)new System.Windows.Media.BrushConverter().ConvertFromString(hex)!;
-        Resources["CanvasBrush"] = contrast ? SystemColors.WindowBrush : Brush("#101112");
-        Resources["CardBrush"] = contrast ? SystemColors.WindowBrush : Brush("#191B1D");
+        Resources["CanvasBrush"] = contrast ? SystemColors.WindowBrush : Brush(glass ? "#10151D" : "#101112");
+        Resources["CardBrush"] = contrast ? SystemColors.WindowBrush : Brush(glass ? "#303E50" : "#191B1D");
         Resources["TextBrush"] = contrast ? SystemColors.WindowTextBrush : Brush("#F4F5F5");
-        Resources["MutedBrush"] = contrast ? SystemColors.WindowTextBrush : Brush("#999FA3");
-        Resources["AccentBrush"] = contrast ? SystemColors.HighlightBrush : Brush(Settings.Theme switch { AccentTheme.Ice => "#AAD9FF", AccentTheme.Amber => "#FFD396", _ => "#C8F7AD" });
-        Resources["LineBrush"] = contrast ? SystemColors.WindowTextBrush : Brush("#2C2F31");
+        Resources["MutedBrush"] = contrast ? SystemColors.WindowTextBrush : Brush(glass ? "#B1BECE" : "#999FA3");
+        Resources["AccentBrush"] = contrast ? SystemColors.HighlightBrush : Brush(Settings.Theme switch { AccentTheme.Ice or AccentTheme.ObsidianGlass => "#AAD9FF", AccentTheme.Amber => "#FFD396", _ => "#C8F7AD" });
+        Resources["LineBrush"] = contrast ? SystemColors.WindowTextBrush : Brush(glass ? "#435369" : "#2C2F31");
+        Resources["ButtonBrush"] = contrast ? SystemColors.WindowBrush : glass ? Resources["GlassButtonBrush"] : Brush("#222528");
+        Resources["ButtonLineBrush"] = contrast ? SystemColors.WindowTextBrush : glass ? Resources["GlassEdgeBrush"] : System.Windows.Media.Brushes.Transparent;
+        Resources["ButtonBorderThickness"] = new Thickness(contrast || glass ? 1 : 0);
+        Resources["SidebarBrush"] = contrast ? SystemColors.WindowBrush : Brush(glass ? "#171F2A" : "#151719");
+        Resources["SelectionBrush"] = contrast ? SystemColors.WindowBrush : Brush(glass ? "#303E50" : "#252C24");
+        Resources["AccentSurfaceBrush"] = contrast ? SystemColors.WindowBrush : Brush(glass ? "#31465C" : "#253320");
+        Resources["ArtworkSurfaceBrush"] = contrast ? SystemColors.WindowBrush : Brush(glass ? "#273444" : "#202520");
     }
     protected override void OnExit(ExitEventArgs e)
     {

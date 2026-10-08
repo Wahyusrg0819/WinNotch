@@ -43,6 +43,11 @@ public partial class SettingsWindow : Window
         Closed += (_, _) => statusTimer.Stop();
     }
 
+    private void OnThemeChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (TrueBlackCheck != null) TrueBlackCheck.IsEnabled = ThemeSelect.SelectedIndex != (int)AccentTheme.ObsidianGlass;
+    }
+
     private void UpdateStatus()
     {
         var battery = host.Battery.Current;

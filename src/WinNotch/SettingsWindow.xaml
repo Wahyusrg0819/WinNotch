@@ -2,7 +2,7 @@
         Title="WinNotch · Settings" Icon="Assets/WinNotch.ico" Style="{StaticResource {x:Type Window}}" Width="760" Height="690" MinWidth="650" MinHeight="520" Background="{DynamicResource CanvasBrush}" WindowStartupLocation="CenterScreen">
   <Grid>
     <Grid.ColumnDefinitions><ColumnDefinition Width="190"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-    <Border Background="#151719" BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,1,0">
+    <Border Background="{DynamicResource SidebarBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,1,0">
       <Grid Margin="24,30,20,24">
         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
         <StackPanel>
@@ -11,11 +11,11 @@
           <TextBlock Text="A quieter kind of utility." FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,6,0,30"/>
         </StackPanel>
         <StackPanel Grid.Row="1">
-          <Border Background="#252C24" CornerRadius="8" Padding="12,10"><TextBlock Text="&#xE713;   Preferences" FontFamily="Segoe UI Variable, Segoe Fluent Icons" Foreground="{DynamicResource AccentBrush}" FontSize="13"/></Border>
+          <Border Background="{DynamicResource SelectionBrush}" CornerRadius="8" Padding="12,10"><TextBlock Text="&#xE713;   Preferences" FontFamily="Segoe UI Variable, Segoe Fluent Icons" Foreground="{DynamicResource AccentBrush}" FontSize="13"/></Border>
           <TextBlock Text="LOCAL BY DESIGN" FontSize="9" FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}" Margin="12,28,0,8"/>
           <TextBlock Text="No account.&#x0a;No cloud.&#x0a;Just your desktop." FontSize="12" LineHeight="22" Foreground="{DynamicResource MutedBrush}" Margin="12,0"/>
         </StackPanel>
-        <TextBlock Grid.Row="2" Text="VERSION 0.2.9  /  PREVIEW" FontSize="9" Foreground="{DynamicResource MutedBrush}"/>
+        <TextBlock Grid.Row="2" Text="VERSION 0.2.10  /  PREVIEW" FontSize="9" Foreground="{DynamicResource MutedBrush}"/>
       </Grid>
     </Border>
     <Grid Grid.Column="1" Margin="30,27,30,20">
@@ -58,9 +58,10 @@
           <CheckBox x:Name="AnimationCheck" Content="Animate transitions"/>
           <ComboBox x:Name="AnimationSpeedSelect" AutomationProperties.Name="Animation speed" Margin="0,0,0,8"><ComboBoxItem Content="Relaxed animations"/><ComboBoxItem Content="Default animations"/><ComboBoxItem Content="Quick animations"/></ComboBox>
           <TextBlock Text="Windows reduced-motion preferences are always respected." FontSize="11" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap"/>
-          <TextBlock Text="Accent theme" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,15,0,7"/>
-          <ComboBox x:Name="ThemeSelect" AutomationProperties.Name="Accent theme"><ComboBoxItem Content="Leaf"/><ComboBoxItem Content="Ice"/><ComboBoxItem Content="Amber"/></ComboBox>
-          <CheckBox x:Name="TrueBlackCheck" Content="True black notch (otherwise near black)"/>
+          <TextBlock Text="Theme" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,15,0,7"/>
+          <ComboBox x:Name="ThemeSelect" AutomationProperties.Name="Theme" SelectionChanged="OnThemeChanged"><ComboBoxItem Content="Leaf"/><ComboBoxItem Content="Ice"/><ComboBoxItem Content="Amber"/><ComboBoxItem Content="Obsidian Glass"/></ComboBox>
+          <TextBlock Text="Obsidian Glass adds a smoky surface, silver edges, and an ice-blue accent." FontSize="11" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+          <CheckBox x:Name="TrueBlackCheck" Content="True black notch (Leaf, Ice, and Amber)"/>
           <TextBlock Text="Modules" FontSize="16" FontWeight="SemiBold" Margin="0,23,0,6"/>
           <CheckBox x:Name="MediaCheck" Content="Media player &amp; album artwork"/>
           <CheckBox x:Name="BatteryCheck" Content="Battery &amp; charging events"/>
